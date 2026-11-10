@@ -46,6 +46,8 @@ export default function App() {
   const [mode, setMode] = useState<"ai" | "online" | "local">("local");
   const [analysisEnabled, setAnalysisEnabled] = useState(true);
   const [aiDepth, setAiDepth] = useState(10);
+  const [aiColor, setAiColor] = useState<"w" | "b">("b");
+  const [localResult, setLocalResult] = useState<"draw" | "white-resigned" | "black-resigned" | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
   const [aiError, setAiError] = useState("");
   const [aiRetry, setAiRetry] = useState(0);
@@ -115,14 +117,19 @@ export default function App() {
     ? room.players.white.id === multiplayer.socketId ? "w"
       : room.players.black?.id === multiplayer.socketId ? "b" : null
     : null;
-  const isMyTurn = mode === "ai" ? game.turn() === "w" : !room || playerColor === game.turn();
+  const humanColor = aiColor === "w" ? "b" : "w";
+  const isMyTurn = mode === "ai" ? game.turn() === humanColor : !room || playerColor === game.turn();
+  const finalResult = room?.result ?? localResult;
   const status = game.isCheckmate()
     ? `Checkmate · ${game.turn() === "w" ? "Black" : "White"} wins`
     : game.isStalemate() ? "Draw · Stalemate"
     : game.isDraw() ? "Draw · Game over"
     : game.isCheck() ? `${game.turn() === "w" ? "White" : "Black"} is in check`
     : `${game.turn() === "w" ? "White" : "Black"} to move`;
-  const gameStatus = mode === "ai" && game.turn() === "b" && !game.isGameOver() ? (aiThinking ? "Stockfish is thinking…" : aiError ? "AI move failed" : "AI is thinking")
+  const gameStatus = finalResult === "draw" ? "Draw agreed · Game over"
+    : finalResult === "white-resigned" ? "White resigned · Black wins"
+    : finalResult === "black-resigned" ? "Black resigned · White wins"
+    : mode === "ai" && game.turn() === aiColor && !game.isGameOver() ? (aiThinking ? "Stockfish is thinking…" : aiError ? "AI move failed" : "AI is thinking")
     : mode === "online" && !room ? "Create a room or join an opponent"
     : room?.phase === "waiting" ? "Waiting for an opponent"
     : room?.phase === "active" && !isMyTurn ? "Opponent's turn"
@@ -130,7 +137,7 @@ export default function App() {
     : status;
 
   useEffect(() => {
-    if (mode !== "ai" || room || game.turn() !== "b" || game.isGameOver()) {
+    if (mode !== "ai" || room || localResult || game.turn() !== aiColor || game.isGameOver()) {
       setAiThinking(false);
       return;
     }
@@ -168,7 +175,7 @@ export default function App() {
       })
       .finally(() => { if (active) setAiThinking(false); });
     return () => { active = false; controller.abort(); };
-  }, [mode, room, fen, aiDepth, aiRetry]);
+  }, [mode, room, fen, aiDepth, aiRetry, aiColor, localResult]);
 
   function changeMode(nextMode: "ai" | "online" | "local") {
     if (nextMode === mode) return;
@@ -176,6 +183,7 @@ export default function App() {
     setMode(nextMode);
     setFen(START_FEN);
     setLocalPgn("");
+    setLocalResult(null);
     setSelected(null);
     setAnalysis(null);
     setAnalysisError("");
@@ -184,6 +192,35 @@ export default function App() {
     setAiThinking(false);
     setAiError("");
     setCopied(false);
+  }
+
+  function chooseAiSide(color: "w" | "b") {
+    setAiColor(color);
+    setFlipped(color === "w");
+    setFen(START_FEN);
+    setLocalPgn("");
+    setLocalResult(null);
+    setSelected(null);
+    setAnalysis(null);
+    setAnalysisError("");
+    setAiError("");
+    setAiRetry(value => value + 1);
+  }
+
+  function offerOrAgreeDraw() {
+    if (room) {
+      if (room.drawOfferBy && room.drawOfferBy !== playerColor) multiplayer.respondToDraw(true);
+      else if (!room.drawOfferBy) multiplayer.offerDraw();
+      return;
+    }
+    if (!game.isGameOver() && !localResult) setLocalResult("draw");
+  }
+
+  function surrender() {
+    if (room) { multiplayer.resign(); return; }
+    if (game.isGameOver() || localResult) return;
+    const resigningColor = mode === "ai" ? humanColor : game.turn();
+    setLocalResult(resigningColor === "w" ? "white-resigned" : "black-resigned");
   }
 
   function toggleAnalysis() {
@@ -219,7 +256,7 @@ export default function App() {
 
   function playSquare(square: Square) {
     if (analyzing || previewCandidate !== null) return;
-    if (game.isGameOver() || !isMyTurn || (mode === "online" && !room) || (room && room.phase !== "active")) return;
+    if (game.isGameOver() || finalResult || !isMyTurn || (mode === "online" && !room) || (room && room.phase !== "active")) return;
     if (selected && legalTargets.includes(square)) {
       if (room) {
         multiplayer.submitMove(room.gameId, selected, square);
@@ -268,6 +305,7 @@ export default function App() {
       setLocalPgn("");
     }
     setSelected(null);
+    setLocalResult(null);
     setAnalysis(null);
     setAnalysisError("");
     setPreviewCandidate(null);
@@ -323,6 +361,11 @@ export default function App() {
 
       <section className="mode-options">
         {mode === "ai" && <div className="ai-difficulty">
+          <span className="mode-option-label">PLAY AS</span>
+          <div className="ai-depth-options">
+            <button className={aiColor === "b" ? "ai-depth active" : "ai-depth"} onClick={() => chooseAiSide("b")}>White</button>
+            <button className={aiColor === "w" ? "ai-depth active" : "ai-depth"} onClick={() => chooseAiSide("w")}>Black</button>
+          </div>
           <span className="mode-option-label">AI STRENGTH</span>
           <div className="ai-depth-options">
             {[{value:5,label:"Easy"},{value:10,label:"Club"},{value:15,label:"Strong"},{value:20,label:"Expert"},{value:22,label:"Maximum"}].map(item =>
@@ -370,7 +413,7 @@ export default function App() {
       <section className="game-layout">
         <div className="board-column">
           <div className="board-topline">
-            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{mode === "ai" ? "Stockfish" : room?.players.black?.username ?? "Black"}</strong><small>{mode === "ai" ? (aiThinking ? "Engine is calculating" : "AI · Black pieces") : room?.players.black ? "Black pieces" : mode === "online" ? "Waiting for player" : "Local player"}</small></div></div>
+            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{mode === "ai" && aiColor === "w" ? "Stockfish" : mode === "ai" ? "You" : room?.players.black?.username ?? "Black"}</strong><small>{mode === "ai" ? (aiColor === "w" ? "AI · White pieces" : "You · Black pieces") : room?.players.black ? "Black pieces" : mode === "online" ? "Waiting for player" : "Local player"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "b" ? "TO MOVE" : "WAITING"}</span>
           </div>
 
@@ -443,11 +486,13 @@ export default function App() {
           )}
 
           <div className="board-bottomline">
-            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>{mode === "online" ? room?.players.white.username ?? "White" : "White"}</strong><small>{mode === "online" ? (room ? (playerColor === "w" ? "You · White pieces" : "White pieces") : "White pieces") : "White pieces"}</small></div></div>
+            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>{mode === "ai" && aiColor === "b" ? "Stockfish" : mode === "ai" ? "You" : mode === "online" ? room?.players.white.username ?? "White" : "White"}</strong><small>{mode === "ai" ? (aiColor === "b" ? "AI · White pieces" : "You · White pieces") : mode === "online" ? (room ? (playerColor === "w" ? "You · White pieces" : "White pieces") : "White pieces") : "Local player"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "w" ? "TO MOVE" : "WAITING"}</span>
           </div>
           <div className="board-actions">
-            <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room || aiThinking}>↶ <span>Undo</span></button>
+            <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room || aiThinking || !!finalResult}>↶ <span>Undo</span></button>
+            <button className="quiet-button" onClick={offerOrAgreeDraw} disabled={!!finalResult || game.isGameOver() || (!!room && (!room.players.black || (!!room.drawOfferBy && room.drawOfferBy === playerColor)))}>{room?.drawOfferBy && room.drawOfferBy !== playerColor ? "Accept draw" : room?.drawOfferBy ? "Draw offered" : "½ Draw"}</button>
+            <button className="quiet-button" onClick={surrender} disabled={!!finalResult || game.isGameOver() || (!!room && !room.players.black)}>⚑ <span>Resign</span></button>
             <button className="quiet-button" onClick={() => setFlipped(!flipped)}>⇅ <span>Flip board</span></button>
             <button className="quiet-button" onClick={resetGame}>{room ? "↩" : "↻"} <span>{room ? "Leave game" : "New game"}</span></button>
           </div>
@@ -457,6 +502,8 @@ export default function App() {
           <section className="side-card game-card">
             <div className="card-title-row"><div><p className="eyebrow">CURRENT GAME</p><h2>Game status</h2></div><span className="live-dot" /></div>
             <p className="game-status">{gameStatus}</p>
+            {room?.drawOfferBy && !room.result && <p className="draw-notice">{room.drawOfferBy === playerColor ? "Draw offer sent · waiting for opponent" : "Your opponent offered a draw."}</p>}
+            {finalResult && <p className="result-note">Game finished. Start a new game to play again.</p>}
             {mode === "ai" && aiError && <div className="analysis-error" role="alert">{aiError} <button className="quiet-button" onClick={() => setAiRetry(value => value + 1)}>Retry AI move</button></div>}
             <div className="stat-row"><span>Moves played</span><strong>{Math.ceil(history.length / 2)}</strong></div>
             <div className="stat-row"><span>Full move</span><strong>{game.moveNumber()}</strong></div>
