@@ -2,13 +2,24 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import type { ChessEngine, EngineAnalysis, EngineScore } from "../../analysis/engine/EnginePort.js";
 
-interface UciInfo { multipv?: number; depth?: number; nodes?: number; timeMs?: number; score?: EngineScore; principalVariation?: string[]; }
+interface UciInfo {
+  multipv?: number;
+  depth?: number;
+  nodes?: number;
+  timeMs?: number;
+  score?: EngineScore;
+  principalVariation?: string[];
+}
 
 export function parseUciInfo(line: string): UciInfo | null {
   if (!line.startsWith("info ")) return null;
-  const depth = line.match(/\bdepth (\d+)/), nodes = line.match(/\bnodes (\d+)/);
-  const time = line.match(/\btime (\d+)/), cp = line.match(/\bscore cp (-?\d+)/);
-  const mate = line.match(/\bscore mate (-?\d+)/), pv = line.match(/\bpv (.+)$/);
+  const depth = line.match(/\\bdepth (\\d+)/);
+  const multipv = line.match(/\\bmultipv (\\d+)/);
+  const nodes = line.match(/\\bnodes (\\d+)/);
+  const time = line.match(/\\btime (\\d+)/);
+  const cp = line.match(/\\bscore cp (-?\\d+)/);
+  const mate = line.match(/\\bscore mate (-?\\d+)/);
+  const pv = line.match(/\\bpv (.+)$/);
   const score: EngineScore | undefined = cp
     ? { kind: "centipawns", value: Number(cp[1]), perspective: "side-to-move" }
     : mate ? { kind: "mate", value: Number(mate[1]), perspective: "side-to-move" } : undefined;
@@ -18,7 +29,7 @@ export function parseUciInfo(line: string): UciInfo | null {
   if (nodes) result.nodes = Number(nodes[1]);
   if (time) result.timeMs = Number(time[1]);
   if (score) result.score = score;
-  if (pv) result.principalVariation = pv[1].trim().split(/\s+/);
+  if (pv) result.principalVariation = pv[1].trim().split(/\\s+/);
   return Object.keys(result).length ? result : null;
 }
 
@@ -64,17 +75,16 @@ export class UciStockfishEngine implements ChessEngine {
     try { await this.startup; } finally { this.startup = null; }
   }
 
-  private getLatestInfo(): UciInfo | null {
-    return this.latestInfo;
-  }
-
   private onLine(line: string): void {
     const info = parseUciInfo(line);
     if (info) {
-      const previousDepth = this.latestInfo?.depth ?? 0;
+      const index = info.multipv ?? 1;
+      const previous = this.latestInfos.get(index);
+      const previousDepth = previous?.depth ?? 0;
       const nextDepth = info.depth ?? previousDepth;
-      if (!this.latestInfo || nextDepth > previousDepth) this.latestInfo = { ...info };
-      else if (nextDepth === previousDepth) this.latestInfo = { ...this.latestInfo, ...info };
+      if (!previous || nextDepth >= previousDepth) {
+        this.latestInfos.set(index, { ...previous, ...info });
+      }
     }
     this.lineBuffer.push(line);
     if (this.lineBuffer.length > 100) this.lineBuffer.shift();
@@ -111,7 +121,7 @@ export class UciStockfishEngine implements ChessEngine {
   private async commandAndWait(command: string, predicate: (line: string) => boolean): Promise<string> {
     if (!this.child) throw new Error("Stockfish process is not running.");
     const response = this.waitForLine(predicate);
-    this.child.stdin.write(command + "\n");
+    this.child.stdin.write(command + "\\n");
     return response;
   }
 
@@ -121,34 +131,53 @@ export class UciStockfishEngine implements ChessEngine {
     try {
       await this.start();
       if (!this.child) throw new Error("Stockfish is unavailable.");
-      this.latestInfo = null;
+      this.latestInfos.clear();
       this.lineBuffer = [];
-      this.child.stdin.write("position fen " + fen + "\n");
+      const candidateCount = Math.max(1, Math.min(5, Math.floor(multiPv)));
+      this.child.stdin.write("setoption name MultiPV value " + candidateCount + "\\n");
+      await this.commandAndWait("isready", line => line === "readyok");
+      this.child.stdin.write("position fen " + fen + "\\n");
       const response = this.waitForLine(line => line.startsWith("bestmove "));
-      this.child.stdin.write("go depth " + depth + "\n");
+      this.child.stdin.write("go depth " + depth + "\\n");
       let bestLine: string;
       try { bestLine = await response; }
       catch (error) {
-        this.child?.stdin.write("stop\n");
+        this.child?.stdin.write("stop\\n");
         try { await this.waitForLine(line => line.startsWith("bestmove "), 5000); } catch { /* engine may have exited */ }
         throw error;
       }
-      const bestMove = bestLine.split(/\s+/)[1];
-      const info = this.getLatestInfo();
+      const bestMove = bestLine.split(/\\s+/)[1];
+      const lines = [...this.latestInfos.entries()]
+        .sort(([left], [right]) => left - right)
+        .map(([rank, info]) => ({
+          rank,
+          move: info.principalVariation?.[0] ?? null,
+          score: info.score ?? null,
+          depth: info.depth ?? depth,
+          nodes: info.nodes ?? null,
+          timeMs: info.timeMs ?? null,
+          moves: info.principalVariation ?? []
+        }));
+      const best = this.latestInfos.get(1) ?? lines[0];
       return {
         bestMove: !bestMove || bestMove === "(none)" || bestMove === "0000" ? null : bestMove,
-        score: info?.score ?? null, depth: info?.depth ?? depth,
-        nodes: info?.nodes ?? null, timeMs: info?.timeMs ?? null,
-        principalVariation: info?.principalVariation ?? []
+        score: best?.score ?? null,
+        depth: best?.depth ?? depth,
+        nodes: best?.nodes ?? null,
+        timeMs: best?.timeMs ?? null,
+        principalVariation: best?.principalVariation ?? [],
+        lines
       };
-    } finally { this.busy = false; }
+    } finally {
+      this.busy = false;
+    }
   }
 
   async close(): Promise<void> {
     const child = this.child;
     this.child = null;
     if (!child) return;
-    try { child.stdin.write("quit\n"); } catch { /* process already closed */ }
+    try { child.stdin.write("quit\\n"); } catch { /* process already closed */ }
     this.reader?.close();
     this.reader = null;
     child.kill();
