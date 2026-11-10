@@ -81,11 +81,17 @@ export function useMultiplayerGame() {
     socketRef.current?.emit("game:move", { gameId, from, to, promotion: "q" });
   }
 
+  function offerDraw() { socketRef.current?.emit("game:draw-offer"); }
+
+  function respondToDraw(accept: boolean) { socketRef.current?.emit("game:draw-response", { accept }); }
+
+  function resign() { socketRef.current?.emit("game:resign"); }
+
   function leaveGame() {
     socketRef.current?.emit("game:leave");
     setRoom(null);
     setError("");
   }
 
-  return { connected, socketId, room, error, createGame, joinGame, submitMove, leaveGame, clearError: () => setError("") };
+  return { connected, socketId, room, error, createGame, joinGame, submitMove, offerDraw, respondToDraw, resign, leaveGame, clearError: () => setError("") };
 }
