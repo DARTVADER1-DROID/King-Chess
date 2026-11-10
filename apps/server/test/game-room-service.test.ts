@@ -7,7 +7,7 @@ class FakeSocket extends EventEmitter {
   readonly rooms = new Set<string>();
   connected = true;
 
-  constructor(readonly id: string, private readonly peers: () => FakeSocket[]) { super(); }
+  constructor(readonly id: string, private readonly peers: () => FakeSocket[]) { super(); this.rooms.add(id); }
 
   async join(room: string) { this.rooms.add(room); }
   async leave(room: string) { this.rooms.delete(room); }
