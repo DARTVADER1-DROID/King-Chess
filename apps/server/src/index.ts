@@ -1,5 +1,5 @@
 import "dotenv/config";
-import Fastify from "fastify";
+import Fastify, { type FastifyReply, type FastifyRequest } from "fastify";
 import cors from "@fastify/cors";
 import { Server } from "socket.io";
 import type { ClientToServerEvents, ServerToClientEvents } from "@king-chess/shared";
@@ -23,7 +23,7 @@ app.get("/api/health", async () => ({
 
 // Account modules are retained for a later milestone, but no account routes or
 // database connections are activated until dedicated PostgreSQL infrastructure exists.
-const accountsDisabled = async (_request, reply) =>
+const accountsDisabled = async (_request: FastifyRequest, reply: FastifyReply) =>
   reply.code(503).send({ error: "Player accounts are temporarily disabled." });
 app.all("/api/accounts", accountsDisabled);
 app.all("/api/accounts/*", accountsDisabled);
