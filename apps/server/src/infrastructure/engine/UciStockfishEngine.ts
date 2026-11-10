@@ -63,6 +63,10 @@ export class UciStockfishEngine implements ChessEngine {
     try { await this.startup; } finally { this.startup = null; }
   }
 
+  private getLatestInfo(): UciInfo | null {
+    return this.latestInfo;
+  }
+
   private onLine(line: string): void {
     const info = parseUciInfo(line);
     if (info) {
@@ -129,7 +133,7 @@ export class UciStockfishEngine implements ChessEngine {
         throw error;
       }
       const bestMove = bestLine.split(/\s+/)[1];
-      const info = this.latestInfo;
+      const info = this.getLatestInfo();
       return {
         bestMove: !bestMove || bestMove === "(none)" || bestMove === "0000" ? null : bestMove,
         score: info?.score ?? null, depth: info?.depth ?? depth,
