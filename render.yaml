@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: king-chess-api
+    runtime: node
+    plan: free
+    region: singapore
+    branch: refactor/analysis-engine-modularity
+    autoDeploy: false
+    buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/server build
+    startCommand: pnpm --filter @king-chess/server start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: WEB_ORIGIN
+        value: https://king-chess-web.onrender.com
+      - key: STOCKFISH_PATH
+        value: stockfish
+
+  - type: web
+    name: king-chess-web
+    runtime: static
+    branch: refactor/analysis-engine-modularity
+    autoDeploy: false
+    buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/web build
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: VITE_API_URL
+        value: https://king-chess-api.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
