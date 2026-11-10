@@ -9,9 +9,10 @@ export interface EngineAnalysis {
   nodes: number | null;
   timeMs: number | null;
   principalVariation: string[];
+  lines: Array<{ rank: number; move: string | null; score: EngineScore | null; depth: number; nodes: number | null; timeMs: number | null; moves: string[] }>;
 }
 
 export interface ChessEngine {
-  analyze(fen: string, depth: number): Promise<EngineAnalysis>;
+  analyze(fen: string, depth: number, multiPv?: number): Promise<EngineAnalysis>;
   close(): Promise<void>;
 }
