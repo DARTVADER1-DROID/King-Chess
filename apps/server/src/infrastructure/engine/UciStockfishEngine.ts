@@ -158,7 +158,7 @@ export class UciStockfishEngine implements ChessEngine {
           timeMs: info.timeMs ?? null,
           moves: info.principalVariation ?? []
         }));
-      const best = this.latestInfos.get(1) ?? lines[0];
+      const best = this.latestInfos.get(1) ?? (lines[0] ? {\n        score: lines[0].score, depth: lines[0].depth, nodes: lines[0].nodes,\n        timeMs: lines[0].timeMs, principalVariation: lines[0].moves\n      } : undefined);
       return {
         bestMove: !bestMove || bestMove === "(none)" || bestMove === "0000" ? null : bestMove,
         score: best?.score ?? null,
