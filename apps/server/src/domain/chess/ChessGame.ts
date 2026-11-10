@@ -58,7 +58,7 @@ export class ChessGame {
   }
 
   getLegalMoves(square?: Square): string[] {
-    return this.game.moves(square ? { square } : undefined);
+    return square ? this.game.moves({ square }) : this.game.moves();
   }
 
   getVerboseLegalMoves(square?: Square): Move[] {
