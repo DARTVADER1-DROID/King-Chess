@@ -18,7 +18,7 @@ services:
     runtime: static
     branch: refactor/analysis-engine-modularity
     autoDeployTrigger: 'off'
-    buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/web build
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/web build
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_URL
