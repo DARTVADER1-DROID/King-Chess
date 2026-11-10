@@ -5,6 +5,7 @@ import {
   type PieceSymbol,
   type Square
 } from "chess.js";
+import { createPieceFromBoard, type PieceInstance } from "./pieces/index.js";
 
 export interface ChessMoveInput {
   from: Square;
