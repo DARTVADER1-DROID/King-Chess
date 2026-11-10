@@ -144,7 +144,7 @@ export default function App() {
   }
 
   function playSquare(square: Square) {
-    if (previewCandidate !== null) return;
+    if (analyzing || previewCandidate !== null) return;
     if (game.isGameOver() || (room && (!isMyTurn || room.phase !== "active"))) return;
     if (selected && legalTargets.includes(square)) {
       if (room) {
@@ -297,7 +297,7 @@ export default function App() {
                   </button>
                 );
               }))}
-              {analysis?.lines?.length ? (
+              {analysis?.lines?.length && previewCandidate === null ? (
                 <svg className="analysis-arrows" viewBox="0 0 8 8" role="group" aria-label="Engine suggested moves">
                   <defs>
                     {analysis.lines.map((_, index) => (
