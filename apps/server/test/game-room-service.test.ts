@@ -86,3 +86,57 @@ test("creates a room, joins a second player and broadcasts server-validated move
   assert.equal(event.gameId, created.gameId);
   assert.equal(event.reason, "player-left");
 });
+
+
+test("supports draw offers, declines, acceptance and resignation", async () => {
+  const io = new FakeIo();
+  const service = new GameRoomService(io as never);
+  const white = io.createSocket("white-draw");
+  const black = io.createSocket("black-draw");
+  service.attach(white as never);
+  service.attach(black as never);
+
+  const createdEvent = once(white, "game:created");
+  white.emit("game:create", { username: "Alice" });
+  const [created] = await createdEvent;
+  const joinedEvent = once(black, "game:joined");
+  black.emit("game:join", { gameId: created.gameId, username: "Bob" });
+  await joinedEvent;
+
+  const offeredEvent = once(black, "game:state");
+  white.emit("game:draw-offer");
+  const [offered] = await offeredEvent;
+  assert.equal(offered.drawOfferBy, "w");
+  const declinedEvent = once(white, "game:state");
+  black.emit("game:draw-response", { accept: false });
+  const [declined] = await declinedEvent;
+  assert.equal(declined.drawOfferBy, null);
+  assert.equal(declined.result, null);
+
+  const offeredAgain = once(black, "game:state");
+  white.emit("game:draw-offer");
+  await offeredAgain;
+  const acceptedEvent = once(white, "game:state");
+  black.emit("game:draw-response", { accept: true });
+  const [accepted] = await acceptedEvent;
+  assert.equal(accepted.result, "draw");
+  assert.equal(accepted.phase, "finished");
+
+  const anotherIo = new FakeIo();
+  const anotherService = new GameRoomService(anotherIo as never);
+  const resigning = anotherIo.createSocket("white-resign");
+  const opponent = anotherIo.createSocket("black-resign");
+  anotherService.attach(resigning as never);
+  anotherService.attach(opponent as never);
+  const roomCreated = once(resigning, "game:created");
+  resigning.emit("game:create", { username: "Carol" });
+  const [room] = await roomCreated;
+  const roomJoined = once(opponent, "game:joined");
+  opponent.emit("game:join", { gameId: room.gameId, username: "Dan" });
+  await roomJoined;
+  const resignedEvent = once(opponent, "game:state");
+  resigning.emit("game:resign");
+  const [resigned] = await resignedEvent;
+  assert.equal(resigned.result, "white-resigned");
+  assert.equal(resigned.phase, "finished");
+});
