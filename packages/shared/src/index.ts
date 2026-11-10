@@ -30,6 +30,8 @@ export interface GameRoomSnapshot {
   board: (ChessPieceSnapshot | null)[][];
   status: "active" | "check" | "checkmate" | "stalemate" | "draw";
   isGameOver: boolean; pgn: string; moveHistory: ChessMoveRecord[];
+  result: "draw" | "white-resigned" | "black-resigned" | null;
+  drawOfferBy: ChessColor | null;
   players: { white: GamePlayer; black: GamePlayer | null };
 }
 export interface CreateGameRequest { username: string; }
@@ -67,6 +69,9 @@ export interface ClientToServerEvents {
   "game:join": (payload: JoinGameRequest) => void;
   "game:move": (payload: SubmitMoveRequest) => void;
   "game:leave": () => void;
+  "game:draw-offer": () => void;
+  "game:draw-response": (payload: { accept: boolean }) => void;
+  "game:resign": () => void;
 }
 export interface ServerToClientEvents {
   "game:created": (snapshot: GameRoomSnapshot) => void;
