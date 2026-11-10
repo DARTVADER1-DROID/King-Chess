@@ -43,6 +43,10 @@ export default function App() {
   const [flipped, setFlipped] = useState(false);
   const [depth, setDepth] = useState(15);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
+  const [mode, setMode] = useState<"ai" | "online" | "local">("local");
+  const [analysisEnabled, setAnalysisEnabled] = useState(true);
+  const [aiDepth, setAiDepth] = useState(10);
+  const [aiThinking, setAiThinking] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [previewCandidate, setPreviewCandidate] = useState<number | null>(null);
@@ -109,19 +113,83 @@ export default function App() {
     ? room.players.white.id === multiplayer.socketId ? "w"
       : room.players.black?.id === multiplayer.socketId ? "b" : null
     : null;
-  const isMyTurn = !room || playerColor === game.turn();
+  const isMyTurn = mode === "ai" ? game.turn() === "w" : !room || playerColor === game.turn();
   const status = game.isCheckmate()
     ? `Checkmate · ${game.turn() === "w" ? "Black" : "White"} wins`
     : game.isStalemate() ? "Draw · Stalemate"
     : game.isDraw() ? "Draw · Game over"
     : game.isCheck() ? `${game.turn() === "w" ? "White" : "Black"} is in check`
     : `${game.turn() === "w" ? "White" : "Black"} to move`;
-  const gameStatus = room?.phase === "waiting" ? "Waiting for an opponent"
+  const gameStatus = mode === "ai" && game.turn() === "b" && !game.isGameOver() ? (aiThinking ? "Stockfish is thinking…" : "AI is thinking")
+    : room?.phase === "waiting" ? "Waiting for an opponent"
     : room?.phase === "active" && !isMyTurn ? "Opponent's turn"
     : room?.phase === "active" ? "Your turn"
     : status;
 
+  useEffect(() => {
+    if (mode !== "ai" || room || game.turn() !== "b" || game.isGameOver()) {
+      setAiThinking(false);
+      return;
+    }
+    const controller = new AbortController();
+    let active = true;
+    setAiThinking(true);
+    fetch(apiUrl("/api/analysis"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ fen, depth: aiDepth }),
+      signal: controller.signal
+    })
+      .then(async response => {
+        const data = await response.json() as AnalysisResponse | { error?: string };
+        if (!response.ok) throw new Error("error" in data && data.error ? data.error : "Stockfish could not choose a move.");
+        const result = data as AnalysisResponse;
+        if (!result.bestMove) throw new Error("Stockfish did not return a legal move.");
+        if (!active) return;
+        const next = new Chess(fen);
+        next.move({
+          from: result.bestMove.slice(0, 2),
+          to: result.bestMove.slice(2, 4),
+          promotion: (result.bestMove[4] as "q" | "r" | "b" | "n" | undefined) ?? "q"
+        });
+        setFen(next.fen());
+        setLocalPgn(next.pgn());
+        setAnalysis(null);
+        setPreviewCandidate(null);
+        setPreviewPly(0);
+      })
+      .catch(error => {
+        if (active && error instanceof Error && error.name !== "AbortError") setAnalysisError(error.message);
+      })
+      .finally(() => { if (active) setAiThinking(false); });
+    return () => { active = false; controller.abort(); };
+  }, [mode, room, fen, aiDepth]);
+
+  function changeMode(nextMode: "ai" | "online" | "local") {
+    if (nextMode === mode) return;
+    if (room) multiplayer.leaveGame();
+    setMode(nextMode);
+    setFen(START_FEN);
+    setLocalPgn("");
+    setSelected(null);
+    setAnalysis(null);
+    setAnalysisError("");
+    setPreviewCandidate(null);
+    setPreviewPly(0);
+    setAiThinking(false);
+    setCopied(false);
+  }
+
+  function toggleAnalysis() {
+    setAnalysisEnabled(value => !value);
+    setAnalysis(null);
+    setAnalysisError("");
+    setPreviewCandidate(null);
+    setPreviewPly(0);
+  }
+
   async function analyzePosition() {
+    if (!analysisEnabled) return;
     setAnalyzing(true);
     setAnalysisError("");
     setAnalysis(null);
