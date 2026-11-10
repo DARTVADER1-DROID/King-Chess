@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
 import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
@@ -52,8 +52,7 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    if (!multiplayer.room) return;
-    setFen(multiplayer.room.fen);
+    setFen(multiplayer.room?.fen ?? START_FEN);
     setSelected(null);
     setAnalysis(null);
     setAnalysisError("");
@@ -154,13 +153,13 @@ export default function App() {
     multiplayer.createGame(username);
   }
 
-  function joinRoom(event: React.FormEvent<HTMLFormElement>) {
+  function joinRoom(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     multiplayer.joinGame(joinCode.trim(), username);
   }
 
   function copyInviteCode() {
-    if (!room) return;
+    if (!room || !navigator.clipboard) return;
     void navigator.clipboard.writeText(room.gameId)
       .then(() => setCopied(true))
       .catch(() => setCopied(false));
