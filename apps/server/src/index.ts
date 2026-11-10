@@ -11,9 +11,12 @@ import { registerGameHandlers } from "./transport/socket/registerGameHandlers.js
 const app = Fastify({ logger: true });
 const port = Number(process.env.PORT ?? 3001);
 const host = process.env.HOST ?? "0.0.0.0";
-const webOrigin = process.env.WEB_ORIGIN ?? "http://localhost:5173";
+const allowedOrigins = (process.env.WEB_ORIGIN ?? "http://localhost:5173")
+  .split(",")
+  .map(origin => origin.trim())
+  .filter(Boolean);
 
-await app.register(cors, { origin: webOrigin, credentials: true });
+await app.register(cors, { origin: allowedOrigins, credentials: true });
 app.get("/api/health", async () => ({
   status: "ok",
   service: "king-chess-api",
@@ -32,7 +35,7 @@ const engine = new UciStockfishEngine();
 await registerAnalysisRoutes(app, new AnalysisService(engine));
 
 const io = new Server<ClientToServerEvents, ServerToClientEvents>(app.server, {
-  cors: { origin: webOrigin, methods: ["GET", "POST"] }
+  cors: { origin: allowedOrigins, methods: ["GET", "POST"], credentials: true }
 });
 registerGameHandlers(io);
 
@@ -42,4 +45,4 @@ app.addHook("onClose", async () => {
 });
 
 await app.listen({ port, host });
-app.log.info({ port, host }, "King Chess server listening");
+app.log.info({ port, host, allowedOrigins }, "King Chess server listening");
