@@ -23,7 +23,7 @@ app.get("/api/health", async () => ({
 
 // Account modules are retained for a later milestone, but no account routes or
 // database connections are activated until dedicated PostgreSQL infrastructure exists.
-const accountsDisabled = async (_request: unknown, reply: { code: (status: number) => { send: (body: object) => unknown } }) =>
+const accountsDisabled = async (_request, reply) =>
   reply.code(503).send({ error: "Player accounts are temporarily disabled." });
 app.all("/api/accounts", accountsDisabled);
 app.all("/api/accounts/*", accountsDisabled);
