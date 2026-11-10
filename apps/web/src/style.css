@@ -60,7 +60,7 @@ h1 em { color: #6e8d79; font-style: normal; font-weight: 520; }
 .multiplayer-note { margin: 11px 0 0; color: #88888d; font-size: 10px; line-height: 1.5; }
 .multiplayer-error, .analysis-error { margin: 10px 0 0; color: #b83c36; font-size: 11px; }
 .game-layout { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(310px, .85fr); gap: 24px; align-items: start; }
-.board-column { min-width: 0; }
+.board-column { min-width: 0; width: 100%; }
 .board-topline, .board-bottomline { display: flex; align-items: center; justify-content: space-between; padding: 11px 4px; }
 .player-label { display: flex; align-items: center; gap: 10px; }
 .avatar { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #e6e6e8; border-radius: 50%; font-size: 22px; }
@@ -71,7 +71,7 @@ h1 em { color: #6e8d79; font-style: normal; font-weight: 520; }
 .player-label small { margin-top: 2px; color: #929298; font-size: 10px; }
 .turn-indicator { color: #929298; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; letter-spacing: .09em; }
 .board-frame { padding: 9px; border: 1px solid #e2e2e4; border-radius: 13px; background: #fff; box-shadow: 0 5px 24px #1d1d1f0b, 0 1px 3px #1d1d1f08; }
-.chessboard { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); aspect-ratio: 1; width: 100%; overflow: hidden; border-radius: 5px; }
+.chessboard { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); grid-template-rows: repeat(8, minmax(0, 1fr)); aspect-ratio: 1 / 1; width: 100%; min-width: 0; overflow: hidden; border-radius: 5px; }
 .square { position: relative; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 0; border: 0; cursor: pointer; transition: filter .12s, background-color .12s; }
 .square.light { background: #eeeee8; }
 .square.dark { background: #8fa995; }
