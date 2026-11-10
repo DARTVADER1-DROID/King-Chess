@@ -42,6 +42,15 @@ export interface EngineScore {
   perspective: "side-to-move";
 }
 export interface AnalysisRequest { fen: string; depth?: number; }
+export interface AnalysisLine {
+  rank: number;
+  move: string | null;
+  score: EngineScore | null;
+  depth: number;
+  nodes: number | null;
+  timeMs: number | null;
+  moves: string[];
+}
 export interface AnalysisResponse {
   fen: string;
   bestMove: string | null;
@@ -50,6 +59,7 @@ export interface AnalysisResponse {
   nodes: number | null;
   timeMs: number | null;
   principalVariation: string[];
+  lines: AnalysisLine[];
 }
 
 export interface ClientToServerEvents {
