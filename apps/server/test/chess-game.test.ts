@@ -13,7 +13,8 @@ test("applies and undoes moves without losing position state", () => {
   const game = new ChessGame();
   game.makeMove({ from: "e2", to: "e4" });
   assert.equal(game.getTurn(), "b");
-  assert.match(game.getFen(), / b KQkq e3 /);
+  assert.match(game.getFen(), / b KQkq - 0 1$/);
+  assert.equal(game.getMoveHistory()[0], "e4");
   game.undoMove();
   assert.equal(game.getTurn(), "w");
   assert.equal(game.getLegalMoves().length, 20);
