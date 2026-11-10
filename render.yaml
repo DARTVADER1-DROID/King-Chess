@@ -1,17 +1,15 @@
 services:
   - type: web
     name: king-chess-api
-    runtime: node
+    runtime: docker
     plan: free
     region: singapore
     branch: refactor/analysis-engine-modularity
     autoDeployTrigger: 'off'
-    buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/server build
-    startCommand: pnpm --filter @king-chess/server start
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
     healthCheckPath: /api/health
     envVars:
-      - key: NODE_VERSION
-        value: "22"
       - key: WEB_ORIGIN
         value: https://king-chess-web.onrender.com
 
