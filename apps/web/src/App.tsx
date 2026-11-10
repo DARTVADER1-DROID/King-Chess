@@ -213,7 +213,7 @@ export default function App() {
 
   function playSquare(square: Square) {
     if (analyzing || previewCandidate !== null) return;
-    if (game.isGameOver() || (room && (!isMyTurn || room.phase !== "active"))) return;
+    if (game.isGameOver() || !isMyTurn || (room && room.phase !== "active")) return;
     if (selected && legalTargets.includes(square)) {
       if (room) {
         multiplayer.submitMove(room.gameId, selected, square);
@@ -242,6 +242,7 @@ export default function App() {
     if (room) return;
     const previous = new Chess(fen);
     if (previous.undo()) {
+      if (mode === "ai" && previous.turn() === "b" && previous.undo()) { /* Undo the AI reply and human move together. */ }
       setFen(previous.fen());
       setLocalPgn(previous.pgn());
       setSelected(null);
@@ -297,12 +298,39 @@ export default function App() {
         <div>
           <p className="eyebrow">THE BOARD IS YOURS</p>
           <h1>Play. Think. <em>Improve.</em></h1>
-          <p className="subtitle">Play locally or challenge someone with a live, server-authoritative game.</p>
+          <p className="subtitle">{mode === "ai" ? "Challenge Stockfish and sharpen your game." : mode === "online" ? "Create a room or join a friend anywhere in the world." : "Two players. One board. Take turns on the same device."}</p>
         </div>
-        <div className="heading-chip"><span>♟</span> {room ? "MULTIPLAYER ROOM" : "LOCAL BOARD"}</div>
+        <div className="heading-chip"><span>♟</span> {mode === "ai" ? "VS STOCKFISH" : mode === "online" ? "ONLINE MATCH" : "LOCAL MATCH"}</div>
       </section>
 
-      <section className="multiplayer-panel">
+      <section className="mode-selector" aria-label="Choose game mode">
+        <button className={mode === "ai" ? "mode-card active" : "mode-card"} onClick={() => changeMode("ai")}>
+          <span className="mode-icon">♞</span><strong>Play vs AI</strong><small>Challenge Stockfish</small>
+        </button>
+        <button className={mode === "online" ? "mode-card active" : "mode-card"} onClick={() => changeMode("online")}>
+          <span className="mode-icon">⌘</span><strong>Online</strong><small>Play with a friend remotely</small>
+        </button>
+        <button className={mode === "local" ? "mode-card active" : "mode-card"} onClick={() => changeMode("local")}>
+          <span className="mode-icon">♟</span><strong>Local</strong><small>Two players, same device</small>
+        </button>
+      </section>
+
+      <section className="mode-options">
+        {mode === "ai" && <div className="ai-difficulty">
+          <span className="mode-option-label">AI STRENGTH</span>
+          <div className="ai-depth-options">
+            {[{value:5,label:"Easy"},{value:10,label:"Club"},{value:15,label:"Strong"},{value:20,label:"Expert"},{value:22,label:"Maximum"}].map(item =>
+              <button key={item.value} className={aiDepth === item.value ? "ai-depth active" : "ai-depth"} onClick={() => setAiDepth(item.value)}>{item.label}</button>
+            )}
+          </div>
+        </div>}
+        <div className="analysis-setting">
+          <div><strong>Position analysis</strong><small>Engine evaluations, suggested arrows and variation previews</small></div>
+          <button type="button" role="switch" aria-checked={analysisEnabled} className={analysisEnabled ? "toggle-switch on" : "toggle-switch"} onClick={toggleAnalysis}><span /></button>
+        </div>
+      </section>
+
+      {mode === "online" && <section className="multiplayer-panel">
         <div className="multiplayer-heading">
           <div><p className="eyebrow">PLAY WITH A FRIEND</p><h2>Multiplayer</h2></div>
           <span className={`connection-label ${multiplayer.connected ? "connected" : ""}`}><i />{multiplayer.connected ? "Realtime connected" : "Connecting to realtime server"}</span>
@@ -331,12 +359,12 @@ export default function App() {
         )}
         {multiplayer.error && <p className="multiplayer-error" role="alert">{multiplayer.error}</p>}
         <p className="multiplayer-note">Create a room and share its invite code. The server validates every move and broadcasts the official position to both players.</p>
-      </section>
+      </section>}
 
       <section className="game-layout">
         <div className="board-column">
           <div className="board-topline">
-            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{room?.players.black?.username ?? "Black"}</strong><small>{room?.players.black ? "Black pieces" : "Waiting for player"}</small></div></div>
+            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{mode === "ai" ? "Stockfish" : room?.players.black?.username ?? "Black"}</strong><small>{mode === "ai" ? (aiThinking ? "Engine is calculating" : "AI · Black pieces") : room?.players.black ? "Black pieces" : mode === "online" ? "Waiting for player" : "Local player"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "b" ? "TO MOVE" : "WAITING"}</span>
           </div>
 
@@ -365,7 +393,7 @@ export default function App() {
                   </button>
                 );
               }))}
-              {analysis?.lines?.length && previewCandidate === null ? (
+              {analysisEnabled && analysis?.lines?.length && previewCandidate === null ? (
                 <svg className="analysis-arrows" viewBox="0 0 8 8" role="group" aria-label="Engine suggested moves">
                   <defs>
                     {analysis.lines.map((_, index) => (
@@ -396,7 +424,7 @@ export default function App() {
               ) : null}
             </div>
           </div>
-          {previewCandidate !== null && analysis?.lines[previewCandidate] && (
+          {analysisEnabled && previewCandidate !== null && analysis?.lines[previewCandidate] && (
             <div className="variation-preview">
               <div><strong>Previewing line {previewCandidate + 1}</strong><small>{analysis.lines[previewCandidate].moves.join("  ")}</small></div>
               <div className="variation-controls">
@@ -409,11 +437,11 @@ export default function App() {
           )}
 
           <div className="board-bottomline">
-            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>{room?.players.white.username ?? "White"}</strong><small>{room ? (playerColor === "w" ? "You · White pieces" : "White pieces") : "White pieces"}</small></div></div>
+            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>{mode === "online" ? room?.players.white.username ?? "White" : "White"}</strong><small>{mode === "online" ? (room ? (playerColor === "w" ? "You · White pieces" : "White pieces") : "White pieces") : "White pieces"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "w" ? "TO MOVE" : "WAITING"}</span>
           </div>
           <div className="board-actions">
-            <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room}>↶ <span>Undo</span></button>
+            <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room || aiThinking}>↶ <span>Undo</span></button>
             <button className="quiet-button" onClick={() => setFlipped(!flipped)}>⇅ <span>Flip board</span></button>
             <button className="quiet-button" onClick={resetGame}>{room ? "↩" : "↻"} <span>{room ? "Leave game" : "New game"}</span></button>
           </div>
@@ -422,7 +450,7 @@ export default function App() {
         <aside className="side-column">
           <section className="side-card game-card">
             <div className="card-title-row"><div><p className="eyebrow">CURRENT GAME</p><h2>Game status</h2></div><span className="live-dot" /></div>
-            <p className="game-status">{room?.phase === "waiting" ? "Waiting for an opponent" : gameStatus}</p>
+            <p className="game-status">{gameStatus}</p>
             <div className="stat-row"><span>Moves played</span><strong>{Math.ceil(history.length / 2)}</strong></div>
             <div className="stat-row"><span>Full move</span><strong>{game.moveNumber()}</strong></div>
             {room && <div className="stat-row"><span>Your side</span><strong>{playerColor === "w" ? "White" : playerColor === "b" ? "Black" : "—"}</strong></div>}
@@ -442,17 +470,17 @@ export default function App() {
             </div>
           </section>
 
-          <section className="side-card analysis-card">
+          {analysisEnabled && <section className="side-card analysis-card">
             <div className="card-title-row"><div><p className="eyebrow">POWERED BY STOCKFISH</p><h2>Position analysis</h2></div><span className="engine-icon">⌁</span></div>
-            <label className="field-label" htmlFor="depth">Search depth</label>
+            <label className="field-label" htmlFor="depth">Analysis depth</label>
             <div className="depth-options" id="depth">
               {DEPTHS.map(item => <button key={item.value} className={depth === item.value ? "depth-option active" : "depth-option"} onClick={() => { setDepth(item.value); setAnalysis(null); setPreviewCandidate(null); setPreviewPly(0); }}>{item.label}<small>{item.value}</small></button>)}
             </div>
-            <button className="analyze-button" onClick={analyzePosition} disabled={analyzing || game.isGameOver()}>
+            <button className="analyze-button" onClick={analyzePosition} disabled={!analysisEnabled || analyzing || aiThinking || game.isGameOver()}>
               {analyzing ? <><span className="spinner" /> Analysing…</> : <>Analyse position <span>→</span></>}
             </button>
-            {analysisError && <p className="analysis-error" role="alert">{analysisError}</p>}
-            {analysis && <div className="analysis-result" aria-live="polite">
+            {analysisEnabled && analysisError && <p className="analysis-error" role="alert">{analysisError}</p>}
+            {analysisEnabled && analysis && <div className="analysis-result" aria-live="polite">
               <div className="evaluation"><span>Evaluation</span><strong>{scoreLabel(analysis)}{analysis.score?.kind === "centipawns" ? " pawns" : ""}</strong></div>
               <div className="stat-row"><span>Best move</span><strong>{analysis.bestMove ?? "—"}</strong></div>
               {analysis.lines?.length > 0 && (
@@ -473,8 +501,8 @@ export default function App() {
               <div className="pv-line"><span>Principal variation</span><p>{analysis.principalVariation.join("  ") || "No line returned"}</p></div>
               <small className="score-note">Score from the side-to-move perspective · depth {analysis.depth}</small>
             </div>}
-            <p className="engine-note">Deeper searches take longer. Engine availability depends on the server's Stockfish installation.</p>
-          </section>
+            <p className="engine-note">Deeper searches take longer. Engine availability depends on the server Stockfish installation.</p>
+          </section>}
         </aside>
       </section>
       <footer className="app-footer">KING CHESS <span>·</span> Built for the love of the game</footer>
