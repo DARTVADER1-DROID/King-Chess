@@ -492,6 +492,7 @@ export default function App() {
           <div className="board-actions">
             <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room || aiThinking || !!finalResult}>↶ <span>Undo</span></button>
             <button className="quiet-button" onClick={offerOrAgreeDraw} disabled={!!finalResult || game.isGameOver() || (!!room && (!room.players.black || (!!room.drawOfferBy && room.drawOfferBy === playerColor)))}>{room?.drawOfferBy && room.drawOfferBy !== playerColor ? "Accept draw" : room?.drawOfferBy ? "Draw offered" : "½ Draw"}</button>
+            {room?.drawOfferBy && room.drawOfferBy !== playerColor && <button className="quiet-button" onClick={() => multiplayer.respondToDraw(false)}>Decline</button>}
             <button className="quiet-button" onClick={surrender} disabled={!!finalResult || game.isGameOver() || (!!room && !room.players.black)}>⚑ <span>Resign</span></button>
             <button className="quiet-button" onClick={() => setFlipped(!flipped)}>⇅ <span>Flip board</span></button>
             <button className="quiet-button" onClick={resetGame}>{room ? "↩" : "↻"} <span>{room ? "Leave game" : "New game"}</span></button>
