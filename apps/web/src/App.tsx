@@ -491,7 +491,7 @@ export default function App() {
           </div>
           <div className="board-actions">
             <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room || aiThinking || !!finalResult}>↶ <span>Undo</span></button>
-            <button className="quiet-button" onClick={offerOrAgreeDraw} disabled={!!finalResult || game.isGameOver() || (!!room && (!room.players.black || (!!room.drawOfferBy && room.drawOfferBy === playerColor)))}>{room?.drawOfferBy && room.drawOfferBy !== playerColor ? "Accept draw" : room?.drawOfferBy ? "Draw offered" : "½ Draw"}</button>
+            <button className="quiet-button" onClick={offerOrAgreeDraw} disabled={!!finalResult || game.isGameOver() || (!!room && (!room.players.black || (!!room.drawOfferBy && room.drawOfferBy === playerColor)))}>{room?.drawOfferBy && room.drawOfferBy !== playerColor ? "Accept draw" : room?.drawOfferBy ? "Draw offered" : mode === "online" ? "Offer draw" : "Agree draw"}</button>
             {room?.drawOfferBy && room.drawOfferBy !== playerColor && <button className="quiet-button" onClick={() => multiplayer.respondToDraw(false)}>Decline</button>}
             <button className="quiet-button" onClick={surrender} disabled={!!finalResult || game.isGameOver() || (!!room && !room.players.black)}>⚑ <span>Resign</span></button>
             <button className="quiet-button" onClick={() => setFlipped(!flipped)}>⇅ <span>Flip board</span></button>
@@ -531,7 +531,7 @@ export default function App() {
             <div className="depth-options" id="depth">
               {DEPTHS.map(item => <button key={item.value} className={depth === item.value ? "depth-option active" : "depth-option"} onClick={() => { setDepth(item.value); setAnalysis(null); setPreviewCandidate(null); setPreviewPly(0); }}>{item.label}<small>{item.value}</small></button>)}
             </div>
-            <button className="analyze-button" onClick={analyzePosition} disabled={!analysisEnabled || analyzing || aiThinking || game.isGameOver()}>
+            <button className="analyze-button" onClick={analyzePosition} disabled={!analysisEnabled || analyzing || aiThinking || game.isGameOver() || !!finalResult}>
               {analyzing ? <><span className="spinner" /> Analysing…</> : <>Analyse position <span>→</span></>}
             </button>
             {analysisEnabled && analysisError && <p className="analysis-error" role="alert">{analysisError}</p>}
