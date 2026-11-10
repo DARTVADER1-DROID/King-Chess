@@ -6,6 +6,7 @@ import { apiUrl } from "./lib/api.js";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const START_FEN = new Chess().fen();
+const ARROW_COLORS = ["#16a34a", "#d69e2e", "#e07a36"];
 const PIECES: Record<string, string> = {
   wk: "♔", wq: "♕", wr: "♖", wb: "♗", wn: "♘", wp: "♙",
   bk: "♚", bq: "♛", br: "♜", bb: "♝", bn: "♞", bp: "♟"
@@ -17,6 +18,12 @@ const DEPTHS = [
   { value: 20, label: "Very deep" },
   { value: 22, label: "Maximum" }
 ];
+
+function squareCenter(square: string, flipped: boolean) {
+  const file = FILES.indexOf(square[0]);
+  const rank = Number(square[1]);
+  return { x: (flipped ? 7 - file : file) + 0.5, y: (flipped ? rank - 1 : 8 - rank) + 0.5 };
+}
 
 function scoreLabel(result: AnalysisResponse): string {
   if (!result.score) return "Evaluation unavailable";
@@ -38,6 +45,8 @@ export default function App() {
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
+  const [previewCandidate, setPreviewCandidate] = useState<number | null>(null);
+  const [previewPly, setPreviewPly] = useState(0);
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
   const [username, setUsername] = useState("Player");
   const [joinCode, setJoinCode] = useState("");
@@ -59,6 +68,8 @@ export default function App() {
     setSelected(null);
     setAnalysis(null);
     setAnalysisError("");
+    setPreviewCandidate(null);
+    setPreviewPly(0);
   }, [multiplayer.room]);
 
   const game = useMemo(() => {
@@ -69,13 +80,30 @@ export default function App() {
     return current;
   }, [fen, localPgn, multiplayer.room?.pgn]);
   const legalTargets = useMemo(() => {
-    if (!selected) return [];
+    if (!selected || previewCandidate !== null) return [];
     return game.moves({ square: selected, verbose: true }).map(move => move.to);
-  }, [game, selected]);
+  }, [game, selected, previewCandidate]);
+  const boardGame = useMemo(() => {
+    const preview = new Chess();
+    const pgn = multiplayer.room?.pgn ?? localPgn;
+    if (pgn) preview.loadPgn(pgn);
+    else preview.load(fen);
+    const line = previewCandidate === null ? null : analysis?.lines[previewCandidate];
+    if (line) {
+      for (const uci of line.moves.slice(0, previewPly)) {
+        try {
+          preview.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] ?? "q" });
+        } catch { break; }
+      }
+    }
+    return preview;
+  }, [fen, localPgn, multiplayer.room?.pgn, analysis, previewCandidate, previewPly]);
 
   const boardRanks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
   const boardFiles = flipped ? [...FILES].reverse() : FILES;
   const history = game.history();
+  const boardHistory = boardGame.history({ verbose: true });
+  const boardLastMove = boardHistory[boardHistory.length - 1];
   const room = multiplayer.room;
   const playerColor = room && multiplayer.socketId
     ? room.players.white.id === multiplayer.socketId ? "w"
@@ -97,6 +125,8 @@ export default function App() {
     setAnalyzing(true);
     setAnalysisError("");
     setAnalysis(null);
+    setPreviewCandidate(null);
+    setPreviewPly(0);
     try {
       const response = await fetch(apiUrl("/api/analysis"), {
         method: "POST",
@@ -114,6 +144,7 @@ export default function App() {
   }
 
   function playSquare(square: Square) {
+    if (previewCandidate !== null) return;
     if (game.isGameOver() || (room && (!isMyTurn || room.phase !== "active"))) return;
     if (selected && legalTargets.includes(square)) {
       if (room) {
@@ -124,6 +155,8 @@ export default function App() {
           setFen(game.fen());
           setLocalPgn(game.pgn());
           setAnalysis(null);
+          setPreviewCandidate(null);
+          setPreviewPly(0);
           setAnalysisError("");
         } catch {
           // Keep the selection when a move cannot be applied locally.
@@ -145,6 +178,8 @@ export default function App() {
       setLocalPgn(previous.pgn());
       setSelected(null);
       setAnalysis(null);
+      setPreviewCandidate(null);
+      setPreviewPly(0);
     }
   }
 
@@ -160,6 +195,8 @@ export default function App() {
     setSelected(null);
     setAnalysis(null);
     setAnalysisError("");
+    setPreviewCandidate(null);
+    setPreviewPly(0);
   }
 
   function createRoom() {
@@ -239,15 +276,11 @@ export default function App() {
             <div className="chessboard" role="group" aria-label="Chess board">
               {boardRanks.map((rank, row) => boardFiles.map((file, col) => {
                 const square = `${file}${rank}` as Square;
-                const piece = game.get(square);
+                const piece = boardGame.get(square);
                 const isLight = (FILES.indexOf(file) + rank) % 2 === 0;
                 const isSelected = selected === square;
                 const isTarget = legalTargets.includes(square);
-                const isLastMove = history.length > 0 && (() => {
-                  const verbose = game.history({ verbose: true });
-                  const last = verbose[verbose.length - 1];
-                  return last?.from === square || last?.to === square;
-                })();
+                const isLastMove = boardLastMove?.from === square || boardLastMove?.to === square;
                 return (
                   <button
                     type="button"
@@ -264,8 +297,48 @@ export default function App() {
                   </button>
                 );
               }))}
+              {analysis?.lines?.length ? (
+                <svg className="analysis-arrows" viewBox="0 0 8 8" role="group" aria-label="Engine suggested moves">
+                  <defs>
+                    {analysis.lines.map((_, index) => (
+                      <marker key={index} id={`analysis-arrow-${index}`} markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto" viewBox="0 0 4 4">
+                        <path d="M0 0 L4 2 L0 4 Z" fill={ARROW_COLORS[index % ARROW_COLORS.length]} />
+                      </marker>
+                    ))}
+                  </defs>
+                  {analysis.lines.map((line, index) => {
+                    const move = line.moves[0];
+                    if (!move || move.length < 4) return null;
+                    const from = squareCenter(move.slice(0, 2), flipped);
+                    const to = squareCenter(move.slice(2, 4), flipped);
+                    return (
+                      <line
+                        key={line.rank}
+                        x1={from.x} y1={from.y} x2={to.x} y2={to.y}
+                        stroke={ARROW_COLORS[index % ARROW_COLORS.length]}
+                        strokeWidth={previewCandidate === index ? 0.15 : 0.11}
+                        strokeLinecap="round"
+                        markerEnd={`url(#analysis-arrow-${index})`}
+                        className={previewCandidate === index ? "analysis-arrow selected" : "analysis-arrow"}
+                        onClick={() => { setPreviewCandidate(index); setPreviewPly(1); setSelected(null); }}
+                      />
+                    );
+                  })}
+                </svg>
+              ) : null}
             </div>
           </div>
+          {previewCandidate !== null && analysis?.lines[previewCandidate] && (
+            <div className="variation-preview">
+              <div><strong>Previewing line {previewCandidate + 1}</strong><small>{analysis.lines[previewCandidate].moves.join("  ")}</small></div>
+              <div className="variation-controls">
+                <button className="quiet-button" onClick={() => setPreviewPly(value => Math.max(0, value - 1))} disabled={previewPly === 0}>←</button>
+                <span>{previewPly}/{analysis.lines[previewCandidate].moves.length}</span>
+                <button className="quiet-button" onClick={() => setPreviewPly(value => Math.min(analysis.lines[previewCandidate].moves.length, value + 1))} disabled={previewPly >= analysis.lines[previewCandidate].moves.length}>→</button>
+                <button className="quiet-button" onClick={() => { setPreviewCandidate(null); setPreviewPly(0); }}>Return</button>
+              </div>
+            </div>
+          )}
 
           <div className="board-bottomline">
             <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>{room?.players.white.username ?? "White"}</strong><small>{room ? (playerColor === "w" ? "You · White pieces" : "White pieces") : "White pieces"}</small></div></div>
@@ -305,7 +378,7 @@ export default function App() {
             <div className="card-title-row"><div><p className="eyebrow">POWERED BY STOCKFISH</p><h2>Position analysis</h2></div><span className="engine-icon">⌁</span></div>
             <label className="field-label" htmlFor="depth">Search depth</label>
             <div className="depth-options" id="depth">
-              {DEPTHS.map(item => <button key={item.value} className={depth === item.value ? "depth-option active" : "depth-option"} onClick={() => { setDepth(item.value); setAnalysis(null); }}>{item.label}<small>{item.value}</small></button>)}
+              {DEPTHS.map(item => <button key={item.value} className={depth === item.value ? "depth-option active" : "depth-option"} onClick={() => { setDepth(item.value); setAnalysis(null); setPreviewCandidate(null); setPreviewPly(0); }}>{item.label}<small>{item.value}</small></button>)}
             </div>
             <button className="analyze-button" onClick={analyzePosition} disabled={analyzing || game.isGameOver()}>
               {analyzing ? <><span className="spinner" /> Analysing…</> : <>Analyse position <span>→</span></>}
@@ -314,6 +387,19 @@ export default function App() {
             {analysis && <div className="analysis-result" aria-live="polite">
               <div className="evaluation"><span>Evaluation</span><strong>{scoreLabel(analysis)}{analysis.score?.kind === "centipawns" ? " pawns" : ""}</strong></div>
               <div className="stat-row"><span>Best move</span><strong>{analysis.bestMove ?? "—"}</strong></div>
+              {analysis.lines?.length > 0 && (
+                <div className="candidate-list">
+                  <span className="candidate-heading">Top candidate moves · tap to preview</span>
+                  {analysis.lines.map((line, index) => (
+                    <button key={line.rank} className={previewCandidate === index ? "candidate-row active" : "candidate-row"} onClick={() => { setPreviewCandidate(index); setPreviewPly(1); setSelected(null); }}>
+                      <span className="candidate-rank" style={{ color: ARROW_COLORS[index % ARROW_COLORS.length] }}>{line.rank}</span>
+                      <strong>{line.move ?? "—"}</strong>
+                      <span>{line.score?.kind === "mate" ? `M${line.score.value}` : line.score ? (line.score.value / 100).toFixed(2) : "—"}</span>
+                      <i style={{ background: ARROW_COLORS[index % ARROW_COLORS.length] }} />
+                    </button>
+                  ))}
+                </div>
+              )}
               <div className="stat-row"><span>Nodes</span><strong>{analysis.nodes?.toLocaleString() ?? "—"}</strong></div>
               <div className="stat-row"><span>Time</span><strong>{analysis.timeMs == null ? "—" : `${analysis.timeMs} ms`}</strong></div>
               <div className="pv-line"><span>Principal variation</span><p>{analysis.principalVariation.join("  ") || "No line returned"}</p></div>
