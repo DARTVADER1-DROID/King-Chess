@@ -9,6 +9,7 @@ const repository = {
   async createSession() {},
   async findByEmail() { return null; },
   async findById() { return null; },
+  async findByEmailForAccountDeletion() { return null; },
   async findPlayerBySession() { return null; },
   async deleteSession() {},
   async updateProfile() { return null; },
