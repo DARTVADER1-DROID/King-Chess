@@ -92,7 +92,7 @@ export default function App() {
     if (line) {
       for (const uci of line.moves.slice(0, previewPly)) {
         try {
-          preview.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: uci[4] ?? "q" });
+          preview.move({ from: uci.slice(0, 2), to: uci.slice(2, 4), promotion: (uci[4] as "q" | "r" | "b" | "n" | undefined) ?? "q" });
         } catch { break; }
       }
     }
