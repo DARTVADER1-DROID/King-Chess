@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
 import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
+import { apiUrl } from "./lib/api.js";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const START_FEN = new Chess().fen();
@@ -44,7 +45,7 @@ export default function App() {
 
   useEffect(() => {
     let active = true;
-    fetch("/api/health")
+    fetch(apiUrl("/api/health"))
       .then(response => { if (!response.ok) throw new Error("API unavailable"); return response.json(); })
       .then(() => { if (active) setApiStatus("online"); })
       .catch(() => { if (active) setApiStatus("offline"); });
@@ -89,7 +90,7 @@ export default function App() {
     setAnalysisError("");
     setAnalysis(null);
     try {
-      const response = await fetch("/api/analysis", {
+      const response = await fetch(apiUrl("/api/analysis"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fen, depth })
