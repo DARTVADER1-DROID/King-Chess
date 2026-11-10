@@ -15,5 +15,5 @@ test("parses mate scores and ignores unrelated UCI output", () => {
     depth: 12, score: { kind: "mate", value: -3, perspective: "side-to-move" },
     principalVariation: ["e1e2"]
   });
-  assert.equal(parseUciInfo("readyok"), null);
+  assert.equal(parseUciInfo("readyok"), null);\n  assert.deepEqual(parseUciInfo("info depth 20 multipv 2 score cp -12 nodes 800 time 30 pv d2d4 d7d5"), {\n    multipv: 2, depth: 20, nodes: 800, timeMs: 30,\n    score: { kind: "centipawns", value: -12, perspective: "side-to-move" },\n    principalVariation: ["d2d4", "d7d5"]\n  });
 });
