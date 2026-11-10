@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
+import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const START_FEN = new Chess().fen();
@@ -36,31 +37,53 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
+  const [username, setUsername] = useState("Player");
+  const [joinCode, setJoinCode] = useState("");
+  const [copied, setCopied] = useState(false);
+  const multiplayer = useMultiplayerGame();
 
   useEffect(() => {
     let active = true;
     fetch("/api/health")
-      .then((response) => { if (!response.ok) throw new Error("API unavailable"); return response.json(); })
+      .then(response => { if (!response.ok) throw new Error("API unavailable"); return response.json(); })
       .then(() => { if (active) setApiStatus("online"); })
       .catch(() => { if (active) setApiStatus("offline"); });
     return () => { active = false; };
   }, []);
 
+  useEffect(() => {
+    if (!multiplayer.room) return;
+    setFen(multiplayer.room.fen);
+    setSelected(null);
+    setAnalysis(null);
+    setAnalysisError("");
+  }, [multiplayer.room]);
+
   const game = useMemo(() => new Chess(fen), [fen]);
   const legalTargets = useMemo(() => {
     if (!selected) return [];
-    return game.moves({ square: selected, verbose: true }).map((move) => move.to);
+    return game.moves({ square: selected, verbose: true }).map(move => move.to);
   }, [game, selected]);
 
   const boardRanks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
   const boardFiles = flipped ? [...FILES].reverse() : FILES;
   const history = game.history();
+  const room = multiplayer.room;
+  const playerColor = room && multiplayer.socketId
+    ? room.players.white.id === multiplayer.socketId ? "w"
+      : room.players.black?.id === multiplayer.socketId ? "b" : null
+    : null;
+  const isMyTurn = !room || playerColor === game.turn();
   const status = game.isCheckmate()
     ? `Checkmate · ${game.turn() === "w" ? "Black" : "White"} wins`
     : game.isStalemate() ? "Draw · Stalemate"
     : game.isDraw() ? "Draw · Game over"
     : game.isCheck() ? `${game.turn() === "w" ? "White" : "Black"} is in check`
     : `${game.turn() === "w" ? "White" : "Black"} to move`;
+  const gameStatus = room?.phase === "waiting" ? "Waiting for an opponent"
+    : room?.phase === "active" && !isMyTurn ? "Opponent's turn"
+    : room?.phase === "active" ? "Your turn"
+    : status;
 
   async function analyzePosition() {
     setAnalyzing(true);
@@ -83,25 +106,30 @@ export default function App() {
   }
 
   function playSquare(square: Square) {
-    if (game.isGameOver()) return;
+    if (game.isGameOver() || (room && (!isMyTurn || room.phase !== "active"))) return;
     if (selected && legalTargets.includes(square)) {
-      try {
-        game.move({ from: selected, to: square, promotion: "q" });
-        setFen(game.fen());
-        setSelected(null);
-        setAnalysis(null);
-        setAnalysisError("");
-        return;
-      } catch {
-        // An invalid move simply leaves the current selection unchanged.
+      if (room) {
+        multiplayer.submitMove(room.gameId, selected, square);
+      } else {
+        try {
+          game.move({ from: selected, to: square, promotion: "q" });
+          setFen(game.fen());
+          setAnalysis(null);
+          setAnalysisError("");
+        } catch {
+          // Keep the selection when a move cannot be applied locally.
+        }
       }
+      setSelected(null);
+      return;
     }
     const piece = game.get(square);
-    if (piece && piece.color === game.turn()) setSelected(square);
+    if (piece && piece.color === game.turn() && (!room || piece.color === playerColor)) setSelected(square);
     else setSelected(null);
   }
 
   function undoMove() {
+    if (room) return;
     const previous = new Chess(fen);
     if (previous.undo()) {
       setFen(previous.fen());
@@ -111,10 +139,31 @@ export default function App() {
   }
 
   function resetGame() {
-    setFen(START_FEN);
+    if (room) {
+      multiplayer.leaveGame();
+      setFen(START_FEN);
+    } else {
+      setFen(START_FEN);
+    }
     setSelected(null);
     setAnalysis(null);
     setAnalysisError("");
+  }
+
+  function createRoom() {
+    multiplayer.createGame(username);
+  }
+
+  function joinRoom(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    multiplayer.joinGame(joinCode.trim(), username);
+  }
+
+  function copyInviteCode() {
+    if (!room) return;
+    void navigator.clipboard.writeText(room.gameId)
+      .then(() => setCopied(true))
+      .catch(() => setCopied(false));
   }
 
   return (
@@ -131,15 +180,46 @@ export default function App() {
         <div>
           <p className="eyebrow">THE BOARD IS YOURS</p>
           <h1>Play. Think. <em>Improve.</em></h1>
-          <p className="subtitle">A focused chess workspace with built-in Stockfish analysis.</p>
+          <p className="subtitle">Play locally or challenge someone with a live, server-authoritative game.</p>
         </div>
-        <div className="heading-chip"><span>♟</span> LOCAL BOARD</div>
+        <div className="heading-chip"><span>♟</span> {room ? "MULTIPLAYER ROOM" : "LOCAL BOARD"}</div>
+      </section>
+
+      <section className="multiplayer-panel">
+        <div className="multiplayer-heading">
+          <div><p className="eyebrow">PLAY WITH A FRIEND</p><h2>Multiplayer</h2></div>
+          <span className={`connection-label ${multiplayer.connected ? "connected" : ""}`}><i />{multiplayer.connected ? "Realtime connected" : "Connecting to realtime server"}</span>
+        </div>
+        {room ? (
+          <div className="room-active">
+            <div className="room-code"><span>INVITE CODE</span><strong>{room.gameId}</strong></div>
+            <div className="room-players">
+              <span>♔ {room.players.white.username}</span>
+              <span>♚ {room.players.black?.username ?? "Waiting for Black"}</span>
+            </div>
+            <div className="room-actions">
+              <button className="lobby-button" onClick={copyInviteCode}>{copied ? "Copied" : "Copy invite code"}</button>
+              <button className="lobby-button secondary" onClick={resetGame}>Leave game</button>
+            </div>
+          </div>
+        ) : (
+          <div className="lobby-controls">
+            <label className="lobby-field"><span>YOUR NAME</span><input value={username} maxLength={24} onChange={event => setUsername(event.target.value)} placeholder="Enter a name" /></label>
+            <button className="lobby-button" onClick={createRoom} disabled={!multiplayer.connected || !username.trim()}>Create game</button>
+            <form className="join-form" onSubmit={joinRoom}>
+              <input aria-label="Invite code" value={joinCode} onChange={event => setJoinCode(event.target.value)} placeholder="Paste invite code" />
+              <button className="lobby-button secondary" type="submit" disabled={!multiplayer.connected || !username.trim() || !joinCode.trim()}>Join game</button>
+            </form>
+          </div>
+        )}
+        {multiplayer.error && <p className="multiplayer-error" role="alert">{multiplayer.error}</p>}
+        <p className="multiplayer-note">Create a room and share its invite code. The server validates every move and broadcasts the official position to both players.</p>
       </section>
 
       <section className="game-layout">
         <div className="board-column">
           <div className="board-topline">
-            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>Black</strong><small>Black pieces</small></div></div>
+            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{room?.players.black?.username ?? "Black"}</strong><small>{room?.players.black ? "Black pieces" : "Waiting for player"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "b" ? "TO MOVE" : "WAITING"}</span>
           </div>
 
@@ -176,22 +256,23 @@ export default function App() {
           </div>
 
           <div className="board-bottomline">
-            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>White</strong><small>White pieces</small></div></div>
+            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>{room?.players.white.username ?? "White"}</strong><small>{room ? (playerColor === "w" ? "You · White pieces" : "White pieces") : "White pieces"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "w" ? "TO MOVE" : "WAITING"}</span>
           </div>
           <div className="board-actions">
-            <button className="quiet-button" onClick={undoMove} disabled={!history.length}>↶ <span>Undo</span></button>
+            <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room}>↶ <span>Undo</span></button>
             <button className="quiet-button" onClick={() => setFlipped(!flipped)}>⇅ <span>Flip board</span></button>
-            <button className="quiet-button" onClick={resetGame}>↻ <span>New game</span></button>
+            <button className="quiet-button" onClick={resetGame}>{room ? "↩" : "↻"} <span>{room ? "Leave game" : "New game"}</span></button>
           </div>
         </div>
 
         <aside className="side-column">
           <section className="side-card game-card">
             <div className="card-title-row"><div><p className="eyebrow">CURRENT GAME</p><h2>Game status</h2></div><span className="live-dot" /></div>
-            <p className="game-status">{status}</p>
+            <p className="game-status">{room?.phase === "waiting" ? "Waiting for an opponent" : gameStatus}</p>
             <div className="stat-row"><span>Moves played</span><strong>{Math.ceil(history.length / 2)}</strong></div>
             <div className="stat-row"><span>Full move</span><strong>{game.moveNumber()}</strong></div>
+            {room && <div className="stat-row"><span>Your side</span><strong>{playerColor === "w" ? "White" : playerColor === "b" ? "Black" : "—"}</strong></div>}
           </section>
 
           <section className="side-card moves-card">
@@ -212,7 +293,7 @@ export default function App() {
             <div className="card-title-row"><div><p className="eyebrow">POWERED BY STOCKFISH</p><h2>Position analysis</h2></div><span className="engine-icon">⌁</span></div>
             <label className="field-label" htmlFor="depth">Search depth</label>
             <div className="depth-options" id="depth">
-              {DEPTHS.map((item) => <button key={item.value} className={depth === item.value ? "depth-option active" : "depth-option"} onClick={() => { setDepth(item.value); setAnalysis(null); }}>{item.label}<small>{item.value}</small></button>)}
+              {DEPTHS.map(item => <button key={item.value} className={depth === item.value ? "depth-option active" : "depth-option"} onClick={() => { setDepth(item.value); setAnalysis(null); }}>{item.label}<small>{item.value}</small></button>)}
             </div>
             <button className="analyze-button" onClick={analyzePosition} disabled={analyzing || game.isGameOver()}>
               {analyzing ? <><span className="spinner" /> Analysing…</> : <>Analyse position <span>→</span></>}
