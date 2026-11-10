@@ -73,6 +73,30 @@ export class ChessBoard {
     return piece ? { type: piece.type, color: piece.color } : null;
   }
 
+  /** Return the typed piece object on a square, or null when it is empty. */
+  getPiece(square: Square): PieceInstance | null {
+    return createPieceFromBoard(this.getPieceAt(square), square);
+  }
+
+  /** Return every piece currently on the board, optionally filtered by color. */
+  getPieces(color?: Color): PieceInstance[] {
+    const pieces: PieceInstance[] = [];
+    const files = "abcdefgh";
+
+    for (let rank = 1; rank <= 8; rank += 1) {
+      for (const file of files) {
+        const square = `${file}${rank}` as Square;
+        const piece = this.getPiece(square);
+
+        if (piece && (!color || piece.color === color)) {
+          pieces.push(piece);
+        }
+      }
+    }
+
+    return pieces;
+  }
+
   /** List legal moves. Pass a square to restrict moves to one piece. */
   getLegalMoves(square?: Square): string[] {
     return this.game.moves(square ? { square } : undefined);
