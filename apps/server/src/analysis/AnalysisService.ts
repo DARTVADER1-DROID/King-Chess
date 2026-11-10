@@ -8,6 +8,7 @@ export class AnalysisUnavailableError extends Error {}
 const MIN_DEPTH = 1;
 const MAX_DEPTH = 22;
 const MAX_FEN_LENGTH = 128;
+const CANDIDATE_LINES = 3;
 
 export class AnalysisService {
   constructor(private readonly engine: ChessEngine) {}
@@ -32,7 +33,7 @@ export class AnalysisService {
     if (chess.isGameOver()) throw new AnalysisInputError("This position is already terminal.");
 
     try {
-      const result = await this.engine.analyze(fen, depth);
+      const result = await this.engine.analyze(fen, depth, CANDIDATE_LINES);
       return { fen, ...result };
     } catch (error) {
       throw new AnalysisUnavailableError(error instanceof Error ? error.message : "Analysis engine unavailable.");
