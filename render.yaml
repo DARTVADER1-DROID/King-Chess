@@ -11,7 +11,7 @@ services:
     healthCheckPath: /api/health
     envVars:
       - key: WEB_ORIGIN
-        value: https://king-chess-web.onrender.com
+        value: https://king-chess-web-yrlt.onrender.com
 
   - type: web
     name: king-chess-web
@@ -22,7 +22,7 @@ services:
     staticPublishPath: apps/web/dist
     envVars:
       - key: VITE_API_URL
-        value: https://king-chess-api.onrender.com
+        value: https://king-chess-api-yrlt.onrender.com
     routes:
       - type: rewrite
         source: /*
