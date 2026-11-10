@@ -21,6 +21,8 @@ services:
     buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/web build
     staticPublishPath: apps/web/dist
     envVars:
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
       - key: VITE_API_URL
         value: https://king-chess-api-yrlt.onrender.com
     routes:
