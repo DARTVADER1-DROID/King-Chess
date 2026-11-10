@@ -73,3 +73,8 @@ Depth is limited to 1–22. The response includes best move, score (from the sid
 The account backend and initial PostgreSQL migration are retained in the repository for a future milestone, but **account routes are disabled in the current MVP**. Requests to `/api/accounts` return HTTP 503. The server does not connect to PostgreSQL, create account tables, or require `DATABASE_URL`. No account database or deployment configuration is needed to run multiplayer chess.
 
 Before enabling accounts in a future release, provision a dedicated database, apply the migration, and complete the remaining security work (email verification, password reset, login throttling, CSRF/origin protection and end-to-end database tests).
+
+
+## Deployment
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) for the two-service Render Blueprint, environment variables and two-browser multiplayer smoke test. The Blueprint is defined in `render.yaml`; automatic deploys are disabled and it targets the current development branch.
