@@ -121,6 +121,7 @@ export default function App() {
     : game.isCheck() ? `${game.turn() === "w" ? "White" : "Black"} is in check`
     : `${game.turn() === "w" ? "White" : "Black"} to move`;
   const gameStatus = mode === "ai" && game.turn() === "b" && !game.isGameOver() ? (aiThinking ? "Stockfish is thinking…" : "AI is thinking")
+    : mode === "online" && !room ? "Create a room or join an opponent"
     : room?.phase === "waiting" ? "Waiting for an opponent"
     : room?.phase === "active" && !isMyTurn ? "Opponent's turn"
     : room?.phase === "active" ? "Your turn"
@@ -134,6 +135,7 @@ export default function App() {
     const controller = new AbortController();
     let active = true;
     setAiThinking(true);
+    setAnalysisError("");
     fetch(apiUrl("/api/analysis"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -213,7 +215,7 @@ export default function App() {
 
   function playSquare(square: Square) {
     if (analyzing || previewCandidate !== null) return;
-    if (game.isGameOver() || !isMyTurn || (room && room.phase !== "active")) return;
+    if (game.isGameOver() || !isMyTurn || (mode === "online" && !room) || (room && room.phase !== "active")) return;
     if (selected && legalTargets.includes(square)) {
       if (room) {
         multiplayer.submitMove(room.gameId, selected, square);
