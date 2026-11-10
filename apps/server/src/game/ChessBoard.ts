@@ -67,6 +67,12 @@ export class ChessBoard {
     );
   }
 
+  /** Return a copy of the piece on a square, or null when it is empty. */
+  getPieceAt(square: Square): BoardPiece {
+    const piece = this.game.get(square);
+    return piece ? { type: piece.type, color: piece.color } : null;
+  }
+
   /** List legal moves. Pass a square to restrict moves to one piece. */
   getLegalMoves(square?: Square): string[] {
     return this.game.moves(square ? { square } : undefined);
