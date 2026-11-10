@@ -15,6 +15,7 @@ RUN pnpm --filter @king-chess/server build
 FROM node:22-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
+ENV PORT=10000
 ENV STOCKFISH_PATH=/usr/games/stockfish
 
 RUN apt-get update \
@@ -25,5 +26,5 @@ RUN apt-get update \
 COPY --from=builder /app /app
 USER appuser
 
-EXPOSE 3001
+EXPOSE 10000
 CMD ["node", "apps/server/dist/apps/server/src/index.js"]
