@@ -1,0 +1,23 @@
+{
+  "name": "@king-chess/server",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@king-chess/shared": "workspace:*",
+    "@fastify/cors": "^10.0.0",
+    "chess.js": "^1.4.0",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.0",
+    "socket.io": "^4.8.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.0",
+    "tsx": "^4.19.0"
+  }
+}
