@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
 
@@ -36,6 +36,15 @@ export default function App() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
+
+  useEffect(() => {
+    let active = true;
+    fetch("/api/health")
+      .then((response) => { if (!response.ok) throw new Error("API unavailable"); return response.json(); })
+      .then(() => { if (active) setApiStatus("online"); })
+      .catch(() => { if (active) setApiStatus("offline"); });
+    return () => { active = false; };
+  }, []);
 
   const game = useMemo(() => new Chess(fen), [fen]);
   const legalTargets = useMemo(() => {
@@ -139,7 +148,7 @@ export default function App() {
               {boardRanks.map((rank, row) => boardFiles.map((file, col) => {
                 const square = `${file}${rank}` as Square;
                 const piece = game.get(square);
-                const isLight = (FILES.indexOf(file) + rank) % 2 === 0;
+                const isLight = (FILES.indexOf(file) + rank) % 2 !== 0;
                 const isSelected = selected === square;
                 const isTarget = legalTargets.includes(square);
                 const isLastMove = history.length > 0 && (() => {
