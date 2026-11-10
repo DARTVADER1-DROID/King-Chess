@@ -2,7 +2,7 @@ import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { createInterface, type Interface } from "node:readline";
 import type { ChessEngine, EngineAnalysis, EngineScore } from "../../analysis/engine/EnginePort.js";
 
-interface UciInfo { depth?: number; nodes?: number; timeMs?: number; score?: EngineScore; principalVariation?: string[]; }
+interface UciInfo { multipv?: number; depth?: number; nodes?: number; timeMs?: number; score?: EngineScore; principalVariation?: string[]; }
 
 export function parseUciInfo(line: string): UciInfo | null {
   if (!line.startsWith("info ")) return null;
@@ -14,6 +14,7 @@ export function parseUciInfo(line: string): UciInfo | null {
     : mate ? { kind: "mate", value: Number(mate[1]), perspective: "side-to-move" } : undefined;
   const result: UciInfo = {};
   if (depth) result.depth = Number(depth[1]);
+  if (multipv) result.multipv = Number(multipv[1]);
   if (nodes) result.nodes = Number(nodes[1]);
   if (time) result.timeMs = Number(time[1]);
   if (score) result.score = score;
@@ -35,7 +36,7 @@ export class UciStockfishEngine implements ChessEngine {
   private startup: Promise<void> | null = null;
   private waiters: Waiter[] = [];
   private lineBuffer: string[] = [];
-  private latestInfo: UciInfo | null = null;
+  private latestInfos = new Map<number, UciInfo>();
   private busy = false;
 
   constructor(private readonly executablePath = process.env.STOCKFISH_PATH ?? "stockfish") {}
@@ -114,7 +115,7 @@ export class UciStockfishEngine implements ChessEngine {
     return response;
   }
 
-  async analyze(fen: string, depth: number): Promise<EngineAnalysis> {
+  async analyze(fen: string, depth: number, multiPv = 3): Promise<EngineAnalysis> {
     if (this.busy) throw new Error("The analysis engine is busy. Retry shortly.");
     this.busy = true;
     try {
