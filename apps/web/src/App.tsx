@@ -47,6 +47,8 @@ export default function App() {
   const [analysisEnabled, setAnalysisEnabled] = useState(true);
   const [aiDepth, setAiDepth] = useState(10);
   const [aiThinking, setAiThinking] = useState(false);
+  const [aiError, setAiError] = useState("");
+  const [aiRetry, setAiRetry] = useState(0);
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState("");
   const [previewCandidate, setPreviewCandidate] = useState<number | null>(null);
@@ -120,7 +122,7 @@ export default function App() {
     : game.isDraw() ? "Draw · Game over"
     : game.isCheck() ? `${game.turn() === "w" ? "White" : "Black"} is in check`
     : `${game.turn() === "w" ? "White" : "Black"} to move`;
-  const gameStatus = mode === "ai" && game.turn() === "b" && !game.isGameOver() ? (aiThinking ? "Stockfish is thinking…" : "AI is thinking")
+  const gameStatus = mode === "ai" && game.turn() === "b" && !game.isGameOver() ? (aiThinking ? "Stockfish is thinking…" : aiError ? "AI move failed" : "AI is thinking")
     : mode === "online" && !room ? "Create a room or join an opponent"
     : room?.phase === "waiting" ? "Waiting for an opponent"
     : room?.phase === "active" && !isMyTurn ? "Opponent's turn"
@@ -135,6 +137,7 @@ export default function App() {
     const controller = new AbortController();
     let active = true;
     setAiThinking(true);
+    setAiError("");
     setAnalysisError("");
     fetch(apiUrl("/api/analysis"), {
       method: "POST",
@@ -161,11 +164,11 @@ export default function App() {
         setPreviewPly(0);
       })
       .catch(error => {
-        if (active && error instanceof Error && error.name !== "AbortError") setAnalysisError(error.message);
+        if (active && error instanceof Error && error.name !== "AbortError") setAiError(error.message);
       })
       .finally(() => { if (active) setAiThinking(false); });
     return () => { active = false; controller.abort(); };
-  }, [mode, room, fen, aiDepth]);
+  }, [mode, room, fen, aiDepth, aiRetry]);
 
   function changeMode(nextMode: "ai" | "online" | "local") {
     if (nextMode === mode) return;
@@ -179,6 +182,7 @@ export default function App() {
     setPreviewCandidate(null);
     setPreviewPly(0);
     setAiThinking(false);
+    setAiError("");
     setCopied(false);
   }
 
@@ -453,6 +457,7 @@ export default function App() {
           <section className="side-card game-card">
             <div className="card-title-row"><div><p className="eyebrow">CURRENT GAME</p><h2>Game status</h2></div><span className="live-dot" /></div>
             <p className="game-status">{gameStatus}</p>
+            {mode === "ai" && aiError && <div className="analysis-error" role="alert">{aiError} <button className="quiet-button" onClick={() => setAiRetry(value => value + 1)}>Retry AI move</button></div>}
             <div className="stat-row"><span>Moves played</span><strong>{Math.ceil(history.length / 2)}</strong></div>
             <div className="stat-row"><span>Full move</span><strong>{game.moveNumber()}</strong></div>
             {room && <div className="stat-row"><span>Your side</span><strong>{playerColor === "w" ? "White" : playerColor === "b" ? "Black" : "—"}</strong></div>}
