@@ -31,6 +31,7 @@ function scoreLabel(result: AnalysisResponse): string {
 
 export default function App() {
   const [fen, setFen] = useState(START_FEN);
+  const [localPgn, setLocalPgn] = useState("");
   const [selected, setSelected] = useState<Square | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [depth, setDepth] = useState(15);
@@ -54,12 +55,19 @@ export default function App() {
 
   useEffect(() => {
     setFen(multiplayer.room?.fen ?? START_FEN);
+    setLocalPgn(multiplayer.room?.pgn ?? "");
     setSelected(null);
     setAnalysis(null);
     setAnalysisError("");
   }, [multiplayer.room]);
 
-  const game = useMemo(() => new Chess(fen), [fen]);
+  const game = useMemo(() => {
+    const current = new Chess();
+    const pgn = multiplayer.room?.pgn ?? localPgn;
+    if (pgn) current.loadPgn(pgn);
+    else current.load(fen);
+    return current;
+  }, [fen, localPgn, multiplayer.room?.pgn]);
   const legalTargets = useMemo(() => {
     if (!selected) return [];
     return game.moves({ square: selected, verbose: true }).map(move => move.to);
@@ -114,6 +122,7 @@ export default function App() {
         try {
           game.move({ from: selected, to: square, promotion: "q" });
           setFen(game.fen());
+          setLocalPgn(game.pgn());
           setAnalysis(null);
           setAnalysisError("");
         } catch {
@@ -133,6 +142,7 @@ export default function App() {
     const previous = new Chess(fen);
     if (previous.undo()) {
       setFen(previous.fen());
+      setLocalPgn(previous.pgn());
       setSelected(null);
       setAnalysis(null);
     }
@@ -142,8 +152,10 @@ export default function App() {
     if (room) {
       multiplayer.leaveGame();
       setFen(START_FEN);
+      setLocalPgn("");
     } else {
       setFen(START_FEN);
+      setLocalPgn("");
     }
     setSelected(null);
     setAnalysis(null);
