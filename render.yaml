@@ -5,7 +5,7 @@ services:
     plan: free
     region: singapore
     branch: refactor/analysis-engine-modularity
-    autoDeployTrigger: off
+    autoDeployTrigger: 'off'
     buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/server build
     startCommand: pnpm --filter @king-chess/server start
     healthCheckPath: /api/health
@@ -19,7 +19,7 @@ services:
     name: king-chess-web
     runtime: static
     branch: refactor/analysis-engine-modularity
-    autoDeploy: false
+    autoDeployTrigger: 'off'
     buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/web build
     staticPublishPath: apps/web/dist
     envVars:
