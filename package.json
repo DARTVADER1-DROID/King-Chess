@@ -1,0 +1,16 @@
+{
+  "name": "king-chess",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.0.0",
+  "engines": { "node": ">=22" },
+  "scripts": {
+    "dev": "concurrently -k -n web,server -c blue,green \"pnpm --filter @king-chess/web dev\" \"pnpm --filter @king-chess/server dev\"",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.0",
+    "typescript": "^5.8.0"
+  }
+}
