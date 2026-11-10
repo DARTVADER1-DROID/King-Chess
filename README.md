@@ -1,80 +1,138 @@
 # King Chess
 
-A real-time, web-based multiplayer chess application.
+King Chess is a browser-based chess application with three play modes, Stockfish analysis, and real-time invite-code multiplayer.
 
-## Stack
-- Web: React, Vite, TypeScript
-- API/realtime: Node.js, Fastify, Socket.IO
-- Rules and position validation: chess.js
-- Analysis: Stockfish through the UCI protocol (optional local executable)
-- Accounts: planned; implementation retained but routes intentionally disabled for the current MVP
-- Shared contracts: TypeScript workspace package
-- Package manager: pnpm workspaces
+## Features
+
+- **AI game:** Play Stockfish as White or Black. The current presets select search depth (Easy 5, Club 10, Strong 15, Expert 20, Maximum 22); they do not yet represent calibrated Elo ratings.
+- **Online multiplayer:** Create an invite room and share its code. The first player is White and the second is Black. The server validates every move and broadcasts authoritative game state.
+- **Local multiplayer:** Two players share one browser/device.
+- **Analysis:** Optional in every mode. Request a Stockfish analysis with up to three candidate lines, evaluations, principal variation, nodes and engine time. Candidate lines can be previewed without changing the actual game.
+- **Evaluation bar:** Toggle the board-side evaluation display. It reflects the most recently completed manual analysis; it is not continuously refreshed after every move.
+- **Game actions:** Undo in supported non-online games, draw actions, resignation, board flip, move history and game status.
+
+## Technology
+
+| Area | Technology |
+|---|---|
+| Web client | React 19, Vite 6, TypeScript |
+| API and realtime | Node.js 22, Fastify 5, Socket.IO 4 |
+| Chess rules | chess.js |
+| Analysis | Stockfish executable over UCI |
+| Shared contracts | TypeScript workspace package |
+| Package manager | pnpm 10 workspaces |
+| Hosting configuration | Render Blueprint |
+
+The web app is client-side rendered (CSR). The backend is authoritative for online game state. Player accounts are intentionally disabled; the current application does not require PostgreSQL or Supabase.
+
+## Repository layout
+
+```text
+apps/
+  web/
+    src/
+      App.tsx                 Main game workspace and UI state
+      hooks/                  Realtime client hooks
+      lib/                    API URL helpers
+  server/
+    src/
+      domain/chess/            Chess position and domain rules
+      application/games/       Multiplayer room orchestration
+      analysis/                Analysis use case and engine port
+      infrastructure/engine/   Stockfish UCI process adapter
+      transport/http/           Fastify HTTP routes
+      transport/socket/         Socket.IO event registration
+    test/                      Node test-runner tests
+    migrations/                 Dormant account migration
+packages/
+  shared/src/                  HTTP and Socket.IO TypeScript contracts
+docs/                           Architecture, review and handover notes
+```
+
+The intended dependency direction is transport → application/domain. The chess domain does not depend on Fastify or Socket.IO. Analysis depends on a `ChessEngine` port, with Stockfish implemented as an infrastructure adapter.
 
 ## Requirements
-- Node.js 22 or newer
-- pnpm 10 or newer
 
-## Getting started
+- Node.js 22.x
+- pnpm 10.x (Corepack can provide pnpm)
+
+## Local development
+
 ```bash
 corepack enable
 pnpm install
 cp apps/server/.env.example apps/server/.env
 pnpm dev
 ```
-The web app runs at http://localhost:5173 and the API at http://localhost:3001.
 
-## Workspace architecture
-```text
-apps/
-  web/                         React + Vite client
-  server/
-    src/
-      domain/chess/             ChessGame, position-bound piece views
-      application/games/         Game-room use cases and orchestration
-      analysis/                  Analysis service and engine port
-      infrastructure/engine/     Stockfish UCI process adapter
-      transport/http/             Fastify routes
-      transport/socket/           Socket.IO event registration
-packages/
-  shared/                       API and realtime contracts
-```
+- Web client: http://localhost:5173
+- API and Socket.IO: http://localhost:3001
+- Vite proxies `/api` and Socket.IO traffic to the local API.
 
-The dependency direction is transport → application/domain. The chess domain does not depend on Socket.IO or Fastify. The analysis service depends on an engine interface; Stockfish is an infrastructure adapter.
+Useful commands from the repository root:
 
-## Commands
 ```bash
 pnpm dev
-pnpm build
 pnpm typecheck
+pnpm build
+pnpm test
 pnpm --filter @king-chess/server test
 ```
 
-## Multiplayer events
-The first player is White and the second player is Black. The web client connects to Socket.IO automatically. Enter a display name, create a room, and share its invite code; the second player joins with that code. The UI listens for `game:created`, `game:joined`, `game:state`, `game:error` and `game:ended`. Moves are submitted as `game:move`; the browser does not commit multiplayer moves locally. The server checks room membership, turn ownership, input shape and chess legality before broadcasting an authoritative snapshot. A disconnect currently ends the room. Local play remains available without joining a room.
+## Configuration
 
-## Chess analysis engine
-Install Stockfish on the server host and set `STOCKFISH_PATH` to its executable path (or ensure `stockfish` is on PATH). The backend starts it lazily and speaks UCI; no engine binary is bundled in this repository.
+Server environment variables (see `apps/server/.env.example`):
 
-`POST /api/analysis`:
+| Variable | Purpose | Default |
+|---|---|---|
+| `HOST` | HTTP bind address | `0.0.0.0` |
+| `PORT` | HTTP port | `3001` |
+| `WEB_ORIGIN` | Comma-separated allowed browser origins for CORS | `http://localhost:5173` |
+| `STOCKFISH_PATH` | Stockfish executable path | `stockfish` on PATH |
+
+The frontend reads `VITE_API_URL` at build time. Leave it unset for same-origin/local Vite proxy use; set it to the public API origin for a separately hosted frontend.
+
+## HTTP API
+
+### `GET /api/health`
+
+Returns API process status and configuration hints. **This is a liveness/configuration response, not a proof that Stockfish can start or complete a search.**
+
+### `POST /api/analysis`
+
+Request:
+
 ```json
-{ "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1", "depth": 15 }
+{
+  "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+  "depth": 15
+}
 ```
-Depth is limited to 1–22. The response includes best move, score (from the side-to-move perspective), completed depth, nodes, elapsed engine time and principal variation. If Stockfish is not installed/configured, the route returns HTTP 503. The engine serializes searches and currently supports one analysis at a time.
 
-## Security and MVP limitations
-- The server owns game positions; clients never submit a trusted board state.
-- Game rooms are in-memory and are lost on restart.
-- Authentication, reconnect/resume, matchmaking, persistence, analysis rate limiting and multi-instance coordination remain future work.
-- Deployments must provide a trusted Stockfish executable; do not accept a client-supplied engine path.
+- `fen` is required and must describe a valid, non-terminal chess position.
+- `depth` is optional; defaults to 15 and must be an integer from 1 through 22.
+- Response includes the normalized FEN, best move, score, completed depth, nodes, elapsed engine time, principal variation and candidate lines.
+- Scores are expressed from the **side-to-move perspective**.
+- Invalid input returns HTTP 400. Engine failures return HTTP 503.
 
-## Player accounts (paused)
+The current server uses one shared Stockfish process and allows one search at a time. Searches request three candidate lines. See [Architecture and review](docs/architecture-and-review.md) for operational constraints.
 
-The account backend and initial PostgreSQL migration are retained in the repository for a future milestone, but **account routes are disabled in the current MVP**. Requests to `/api/accounts` return HTTP 503. The server does not connect to PostgreSQL, create account tables, or require `DATABASE_URL`. No account database or deployment configuration is needed to run multiplayer chess.
+### Player accounts
 
-Before enabling accounts in a future release, provision a dedicated database, apply the migration, and complete the remaining security work (email verification, password reset, login throttling, CSRF/origin protection and end-to-end database tests).
+All `/api/accounts` routes return HTTP 503 while accounts are paused. No database connection or `DATABASE_URL` is required. The retained account implementation and SQL migration are not active application functionality.
 
+## Multiplayer protocol
+
+The first player creates a room and receives an invite code; the second player joins as Black. The browser sends commands such as `game:create`, `game:join`, `game:move`, `game:draw-offer`, `game:draw-response`, `game:resign` and `game:leave`. The server validates membership, turn ownership, payloads and move legality before broadcasting a snapshot.
+
+Room state is held in memory. A server restart or player disconnect ends the room; reconnect/resume and persistent game records are not implemented. See [Architecture and review](docs/architecture-and-review.md).
 
 ## Deployment
 
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for the two-service Render Blueprint, environment variables and two-browser multiplayer smoke test. The Blueprint is defined in `render.yaml`; automatic deploys are disabled and it targets the current development branch.
+The Render Blueprint is `render.yaml`; service configuration and smoke-test instructions are in [DEPLOYMENT.md](DEPLOYMENT.md). Automatic deploys are disabled. Do not merge the draft pull request or trigger a production deployment as part of routine documentation work.
+
+## Further documentation
+
+- [Deployment guide](DEPLOYMENT.md)
+- [Architecture, code review and known limitations](docs/architecture-and-review.md)
+- [Operations, pause state and future work](docs/operations-and-roadmap.md)
