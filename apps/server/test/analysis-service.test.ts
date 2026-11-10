@@ -5,7 +5,7 @@ import type { ChessEngine } from "../src/analysis/engine/EnginePort.js";
 
 const fakeEngine: ChessEngine = {
   async analyze(fen, depth) {
-    return { bestMove: "e2e4", score: { kind: "centipawns", value: 25, perspective: "side-to-move" }, depth, nodes: 100, timeMs: 10, principalVariation: ["e2e4"] };
+    return { bestMove: "e2e4", score: { kind: "centipawns", value: 25, perspective: "side-to-move" }, depth, nodes: 100, timeMs: 10, principalVariation: ["e2e4"], lines: [{ rank: 1, move: "e2e4", score: { kind: "centipawns", value: 25, perspective: "side-to-move" }, depth, nodes: 100, timeMs: 10, moves: ["e2e4"] }] };
   },
   async close() {}
 };
