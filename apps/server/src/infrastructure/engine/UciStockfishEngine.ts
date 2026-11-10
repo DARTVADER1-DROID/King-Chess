@@ -65,8 +65,11 @@ export class UciStockfishEngine implements ChessEngine {
 
   private onLine(line: string): void {
     const info = parseUciInfo(line);
-    if (info && (!this.latestInfo || (info.depth ?? 0) >= (this.latestInfo.depth ?? 0))) {
-      this.latestInfo = { ...this.latestInfo, ...info };
+    if (info) {
+      const previousDepth = this.latestInfo?.depth ?? 0;
+      const nextDepth = info.depth ?? previousDepth;
+      if (!this.latestInfo || nextDepth > previousDepth) this.latestInfo = { ...info };
+      else if (nextDepth === previousDepth) this.latestInfo = { ...this.latestInfo, ...info };
     }
     this.lineBuffer.push(line);
     if (this.lineBuffer.length > 100) this.lineBuffer.shift();
