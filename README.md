@@ -7,6 +7,7 @@ A real-time, web-based multiplayer chess application.
 - API/realtime: Node.js, Fastify, Socket.IO
 - Rules and position validation: chess.js
 - Analysis: Stockfish through the UCI protocol (optional local executable)
+- Accounts: Fastify routes, PostgreSQL (`pg`), Argon2id password hashing and opaque server-managed sessions
 - Shared contracts: TypeScript workspace package
 - Package manager: pnpm workspaces
 
@@ -66,3 +67,29 @@ Depth is limited to 1–22. The response includes best move, score (from the sid
 - Game rooms are in-memory and are lost on restart.
 - Authentication, reconnect/resume, matchmaking, persistence, analysis rate limiting and multi-instance coordination remain future work.
 - Deployments must provide a trusted Stockfish executable; do not accept a client-supplied engine path.
+
+## Player accounts
+
+Player accounts use **independent PostgreSQL on Render**. There is no Supabase, Firebase or external identity provider. The API owns registration, password verification, sessions and profile rules.
+
+### Database setup
+
+1. Create a PostgreSQL database in Render.
+2. Copy its **internal** connection URL into the API service environment as `DATABASE_URL` (use the external URL only when connecting from outside Render).
+3. Set `DATABASE_SSL=true` for Render PostgreSQL. For a local non-TLS PostgreSQL instance, set it to `false`.
+4. Apply the initial schema once:
+   ```bash
+   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f apps/server/migrations/001_player_accounts.sql
+   ```
+5. Deploy the API. Account endpoints are enabled only when `DATABASE_URL` is configured.
+
+### Account API
+
+- `POST /api/accounts/register` — email, username, displayName, password; creates an account and signs it in.
+- `POST /api/accounts/login` — verifies credentials and issues a session.
+- `POST /api/accounts/logout` — revokes the current session.
+- `GET /api/accounts/me` — returns the authenticated player profile.
+- `PATCH /api/accounts/me` — updates displayName and avatarUrl.
+- `DELETE /api/accounts/me` — deletes the account after password confirmation.
+
+Passwords are hashed with Argon2id. Random session tokens are stored only as SHA-256 hashes in PostgreSQL and delivered in HttpOnly, SameSite=Lax cookies. Sessions expire after 30 days; expired sessions are cleaned at server startup. Use HTTPS in production. Email verification, password reset/email delivery, login throttling, CSRF/origin hardening and account UI are not implemented yet and should be completed before public launch.
