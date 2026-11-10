@@ -5,6 +5,7 @@ import type {
   GameRoomSnapshot,
   ServerToClientEvents
 } from "@king-chess/shared";
+import { API_BASE_URL } from "../lib/api.js";
 
 type ChessSocket = Socket<ServerToClientEvents, ClientToServerEvents>;
 
@@ -16,18 +17,29 @@ export function useMultiplayerGame() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const socket = io() as ChessSocket;
+    const socket = io(API_BASE_URL || undefined, {
+      reconnection: true,
+      reconnectionAttempts: 8,
+      timeout: 10000
+    }) as ChessSocket;
     socketRef.current = socket;
 
     socket.on("connect", () => {
       setConnected(true);
       setSocketId(socket.id ?? null);
+      setError("");
     });
-    socket.on("disconnect", () => {
+    socket.on("connect_error", () => {
+      setConnected(false);
+      setError("Could not connect to the game server. Check the server URL and try again.");
+    });
+    socket.on("disconnect", reason => {
       setConnected(false);
       setSocketId(null);
       setRoom(null);
-      setError("Connection lost. Any active room has ended; reconnect and create a new game.");
+      if (reason !== "io client disconnect") {
+        setError("Connection lost. Any active room has ended; reconnect and create a new game.");
+      }
     });
     socket.on("game:created", snapshot => {
       setRoom(snapshot);
