@@ -82,6 +82,14 @@ export class PostgresPlayerRepository {
     return result.rows[0] ? publicPlayer(toRecord(result.rows[0])) : null;
   }
 
+  async findByEmailForAccountDeletion(id: string): Promise<PlayerRecord | null> {
+    const result = await this.pool.query<PlayerRow>(
+      `SELECT id, email, username, display_name, avatar_url, password_hash, rating,
+        games_played, games_won, games_drawn, created_at FROM players WHERE id = $1`, [id]
+    );
+    return result.rows[0] ? toRecord(result.rows[0]) : null;
+  }
+
   async deleteAccount(id: string): Promise<void> {
     await this.pool.query("DELETE FROM players WHERE id = $1", [id]);
   }
