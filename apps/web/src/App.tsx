@@ -148,7 +148,7 @@ export default function App() {
               {boardRanks.map((rank, row) => boardFiles.map((file, col) => {
                 const square = `${file}${rank}` as Square;
                 const piece = game.get(square);
-                const isLight = (FILES.indexOf(file) + rank) % 2 !== 0;
+                const isLight = (FILES.indexOf(file) + rank) % 2 === 0;
                 const isSelected = selected === square;
                 const isTarget = legalTargets.includes(square);
                 const isLastMove = history.length > 0 && (() => {
