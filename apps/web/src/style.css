@@ -220,3 +220,10 @@ h1 em { color: #6e8d79; font-style: normal; font-weight: 520; }
   .analysis-setting { min-width: 0; width: 100%; margin-left: 0; padding-top: 11px; border-top: 1px solid #eeeef0; }
   .analysis-setting small { max-width: none; }
 }
+
+
+/* Game result and action controls. */
+.board-actions { flex-wrap: wrap; }
+.board-actions .quiet-button { flex: 1 1 auto; }
+.draw-notice { margin: 9px 0 0; color: #85672f; font-size: 10px; line-height: 1.45; }
+.result-note { margin: 9px 0 0; color: #6b6b72; font-size: 10px; line-height: 1.45; }
