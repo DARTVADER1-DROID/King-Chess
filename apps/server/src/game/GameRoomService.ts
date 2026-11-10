@@ -132,7 +132,7 @@ export class GameRoomService {
 
     const snapshot = this.toSnapshot(room);
     socket.emit("game:joined", snapshot);
-    this.io.to(gameId).emit("game:state", snapshot);
+    socket.to(gameId).emit("game:state", snapshot);
   }
 
   private submitMove(socket: ChessSocket, payload: unknown): void {
