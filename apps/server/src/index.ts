@@ -7,10 +7,6 @@ import { AnalysisService } from "./analysis/AnalysisService.js";
 import { UciStockfishEngine } from "./infrastructure/engine/UciStockfishEngine.js";
 import { registerAnalysisRoutes } from "./transport/http/registerAnalysisRoutes.js";
 import { registerGameHandlers } from "./transport/socket/registerGameHandlers.js";
-import { createDatabase } from "./infrastructure/database/Database.js";
-import { PostgresPlayerRepository } from "./infrastructure/accounts/PostgresPlayerRepository.js";
-import { AccountService } from "./application/accounts/AccountService.js";
-import { registerAccountRoutes } from "./transport/http/registerAccountRoutes.js";
 
 const app = Fastify({ logger: true });
 const port = Number(process.env.PORT ?? 3001);
@@ -21,20 +17,16 @@ await app.register(cors, { origin: webOrigin, credentials: true });
 app.get("/api/health", async () => ({
   status: "ok",
   service: "king-chess-api",
-  analysis: process.env.STOCKFISH_PATH ? "configured" : "uses PATH"
+  analysis: process.env.STOCKFISH_PATH ? "configured" : "uses PATH",
+  accounts: "disabled"
 }));
 
-const databaseUrl = process.env.DATABASE_URL;
-const database = databaseUrl ? createDatabase(databaseUrl) : null;
-if (database) {
-  const players = new PostgresPlayerRepository(database);
-  const accounts = new AccountService(players);
-  await players.cleanupExpiredSessions();
-  await registerAccountRoutes(app, accounts);
-} else {
-  app.log.warn("DATABASE_URL is not configured; account endpoints are disabled.");
-  app.all("/api/accounts/*", async (_request, reply) => reply.code(503).send({ error: "Account storage is not configured." }));
-}
+// Account modules are retained for a later milestone, but no account routes or
+// database connections are activated until dedicated PostgreSQL infrastructure exists.
+const accountsDisabled = async (_request: unknown, reply: { code: (status: number) => { send: (body: object) => unknown } }) =>
+  reply.code(503).send({ error: "Player accounts are temporarily disabled." });
+app.all("/api/accounts", accountsDisabled);
+app.all("/api/accounts/*", accountsDisabled);
 
 const engine = new UciStockfishEngine();
 await registerAnalysisRoutes(app, new AnalysisService(engine));
@@ -47,7 +39,6 @@ registerGameHandlers(io);
 app.addHook("onClose", async () => {
   await new Promise<void>(resolve => io.close(() => resolve()));
   await engine.close();
-  await database?.end();
 });
 
 await app.listen({ port, host });
