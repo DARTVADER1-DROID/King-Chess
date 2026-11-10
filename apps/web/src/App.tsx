@@ -36,6 +36,23 @@ function scoreLabel(result: AnalysisResponse): string {
   return `${pawns > 0 ? "+" : ""}${pawns.toFixed(2)}`;
 }
 
+function evaluationBarData(result: AnalysisResponse | null, sideToMove: "w" | "b") {
+  if (!result?.score) return { label: "—", whitePercent: 50 };
+  const sign = sideToMove === "w" ? 1 : -1;
+  if (result.score.kind === "mate") {
+    const whiteWinning = result.score.value * sign > 0;
+    return {
+      label: (whiteWinning ? "M" : "−M") + Math.abs(result.score.value),
+      whitePercent: whiteWinning ? 100 : 0
+    };
+  }
+  const whitePawns = (result.score.value * sign) / 100;
+  return {
+    label: (whitePawns > 0 ? "+" : "") + whitePawns.toFixed(2),
+    whitePercent: Math.max(0, Math.min(100, 50 + whitePawns * 5))
+  };
+}
+
 export default function App() {
   const [fen, setFen] = useState(START_FEN);
   const [localPgn, setLocalPgn] = useState("");
@@ -45,6 +62,7 @@ export default function App() {
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [mode, setMode] = useState<"ai" | "online" | "local">("local");
   const [analysisEnabled, setAnalysisEnabled] = useState(true);
+  const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(true);
   const [aiDepth, setAiDepth] = useState(10);
   const [aiColor, setAiColor] = useState<"w" | "b">("b");
   const [localResult, setLocalResult] = useState<"draw" | "white-resigned" | "black-resigned" | null>(null);
@@ -107,6 +125,7 @@ export default function App() {
     return preview;
   }, [fen, localPgn, multiplayer.room?.pgn, analysis, previewCandidate, previewPly]);
 
+  const evaluation = evaluationBarData(analysisEnabled ? analysis : null, game.turn());
   const boardRanks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
   const boardFiles = flipped ? [...FILES].reverse() : FILES;
   const history = game.history();
@@ -417,7 +436,17 @@ export default function App() {
             <span className="turn-indicator">{game.turn() === "b" ? "TO MOVE" : "WAITING"}</span>
           </div>
 
-          <div className="board-frame">
+          <div className="board-with-eval">
+            {evaluationBarEnabled && analysisEnabled && (
+              <div className="evaluation-bar-column" role="img" aria-label={`Position evaluation ${evaluation.label} from White side`}>
+                <span className="evaluation-bar-score">{evaluation.label}</span>
+                <div className="evaluation-bar-track">
+                  <div className="evaluation-bar-white" style={{ height: `${evaluation.whitePercent}%` }} />
+                </div>
+                <span className="evaluation-bar-piece">♔</span>
+              </div>
+            )}
+            <div className="board-frame">
             <div className="chessboard" role="group" aria-label="Chess board">
               {boardRanks.map((rank, row) => boardFiles.map((file, col) => {
                 const square = `${file}${rank}` as Square;
@@ -472,6 +501,7 @@ export default function App() {
                 </svg>
               ) : null}
             </div>
+            </div>
           </div>
           {analysisEnabled && previewCandidate !== null && analysis?.lines[previewCandidate] && (
             <div className="variation-preview">
@@ -490,6 +520,7 @@ export default function App() {
             <span className="turn-indicator">{game.turn() === "w" ? "TO MOVE" : "WAITING"}</span>
           </div>
           <div className="board-actions">
+            <button className={evaluationBarEnabled ? "quiet-button eval-toggle active" : "quiet-button eval-toggle"} type="button" aria-pressed={evaluationBarEnabled} onClick={() => setEvaluationBarEnabled(value => !value)}>▥ <span>Eval bar</span></button>
             <button className="quiet-button" onClick={undoMove} disabled={!history.length || !!room || aiThinking || !!finalResult}>↶ <span>Undo</span></button>
             <button className="quiet-button" onClick={offerOrAgreeDraw} disabled={!!finalResult || game.isGameOver() || (!!room && (!room.players.black || (!!room.drawOfferBy && room.drawOfferBy === playerColor)))}>{room?.drawOfferBy && room.drawOfferBy !== playerColor ? "Accept draw" : room?.drawOfferBy ? "Draw offered" : mode === "online" ? "Offer draw" : "Agree draw"}</button>
             {room?.drawOfferBy && room.drawOfferBy !== playerColor && <button className="quiet-button" onClick={() => multiplayer.respondToDraw(false)}>Decline</button>}
