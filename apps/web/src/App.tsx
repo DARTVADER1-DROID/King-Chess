@@ -139,7 +139,7 @@ export default function App() {
       <section className="game-layout">
         <div className="board-column">
           <div className="board-topline">
-            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>Black</strong><small>Opponent</small></div></div>
+            <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>Black</strong><small>Black pieces</small></div></div>
             <span className="turn-indicator">{game.turn() === "b" ? "TO MOVE" : "WAITING"}</span>
           </div>
 
@@ -176,7 +176,7 @@ export default function App() {
           </div>
 
           <div className="board-bottomline">
-            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>White</strong><small>You</small></div></div>
+            <div className="player-label"><span className="avatar white-avatar">♔</span><div><strong>White</strong><small>White pieces</small></div></div>
             <span className="turn-indicator">{game.turn() === "w" ? "TO MOVE" : "WAITING"}</span>
           </div>
           <div className="board-actions">
