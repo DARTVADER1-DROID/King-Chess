@@ -10,7 +10,7 @@ import { ChessGame } from "../../domain/chess/ChessGame.js";
 type ChessServer = Server<ClientToServerEvents, ServerToClientEvents>;
 type ChessSocket = Socket<ClientToServerEvents, ServerToClientEvents>;
 interface PlayerSeat extends GamePlayer { socketId: string; }
-interface GameRoom { id: string; game: ChessGame; white: PlayerSeat; black: PlayerSeat | null; }
+interface GameRoom { id: string; game: ChessGame; white: PlayerSeat; black: PlayerSeat | null; result: "draw" | "white-resigned" | "black-resigned" | null; drawOfferBy: "w" | "b" | null; }
 
 const USERNAME_MAX_LENGTH = 24;
 const GAME_ID_PATTERN = /^[0-9a-f-]{36}$/i;
@@ -38,6 +38,9 @@ export class GameRoomService {
     socket.on("game:create", payload => { void this.createGame(socket, payload); });
     socket.on("game:join", payload => { void this.joinGame(socket, payload); });
     socket.on("game:move", payload => this.submitMove(socket, payload));
+    socket.on("game:draw-offer", () => this.offerDraw(socket));
+    socket.on("game:draw-response", payload => this.respondToDraw(socket, payload));
+    socket.on("game:resign", () => this.resign(socket));
     socket.on("game:leave", () => this.leaveGame(socket));
     socket.on("disconnect", () => this.handleDisconnect(socket));
   }
@@ -49,7 +52,7 @@ export class GameRoomService {
 
     const id = randomUUID();
     const white: PlayerSeat = { id: socket.id, socketId: socket.id, username, color: "w" };
-    const room: GameRoom = { id, game: new ChessGame(), white, black: null };
+    const room: GameRoom = { id, game: new ChessGame(), white, black: null, result: null, drawOfferBy: null };
     this.games.set(id, room);
     this.socketGames.set(socket.id, id);
 
@@ -103,7 +106,7 @@ export class GameRoomService {
     if (!room.black) return this.sendError(socket, "GAME_NOT_READY", "Waiting for the second player to join.");
     const player = this.findPlayer(room, socket.id);
     if (!player) return this.sendError(socket, "NOT_A_PLAYER", "You are not a player in that game.");
-    if (room.game.isGameOver()) return this.sendError(socket, "GAME_OVER", "This game has already finished.");
+    if (room.result || room.game.isGameOver()) return this.sendError(socket, "GAME_OVER", "This game has already finished.");
     if (room.game.getTurn() !== player.color) return this.sendError(socket, "NOT_YOUR_TURN", "It is the other player's turn.");
 
     if (typeof request.from !== "string" || typeof request.to !== "string" ||
@@ -124,7 +127,42 @@ export class GameRoomService {
     } catch {
       return this.sendError(socket, "ILLEGAL_MOVE", "That move is not legal in the current position.");
     }
+    room.drawOfferBy = null;
     this.io.to(gameId).emit("game:state", this.toSnapshot(room));
+  }
+
+  private offerDraw(socket: ChessSocket): void {
+    const gameId = this.socketGames.get(socket.id);
+    const room = gameId ? this.games.get(gameId) : undefined;
+    const player = room ? this.findPlayer(room, socket.id) : null;
+    if (!room || !player || !room.black) return this.sendError(socket, "NOT_IN_ACTIVE_GAME", "You must be in an active game to offer a draw.");
+    if (room.result || room.game.isGameOver()) return this.sendError(socket, "GAME_OVER", "This game has already finished.");
+    if (room.drawOfferBy) return this.sendError(socket, "DRAW_ALREADY_PENDING", "A draw offer is already awaiting a response.");
+    room.drawOfferBy = player.color;
+    this.io.to(gameId!).emit("game:state", this.toSnapshot(room));
+  }
+
+  private respondToDraw(socket: ChessSocket, payload: unknown): void {
+    const gameId = this.socketGames.get(socket.id);
+    const room = gameId ? this.games.get(gameId) : undefined;
+    const player = room ? this.findPlayer(room, socket.id) : null;
+    if (!room || !player || !room.black || !room.drawOfferBy || room.drawOfferBy === player.color) {
+      return this.sendError(socket, "NO_DRAW_OFFER", "There is no draw offer for you to respond to.");
+    }
+    if (!isRecord(payload) || typeof payload.accept !== "boolean") return this.sendError(socket, "INVALID_DRAW_RESPONSE", "A draw response is required.");
+    if (payload.accept) room.result = "draw";
+    room.drawOfferBy = null;
+    this.io.to(gameId!).emit("game:state", this.toSnapshot(room));
+  }
+
+  private resign(socket: ChessSocket): void {
+    const gameId = this.socketGames.get(socket.id);
+    const room = gameId ? this.games.get(gameId) : undefined;
+    const player = room ? this.findPlayer(room, socket.id) : null;
+    if (!room || !player || room.result || room.game.isGameOver()) return this.sendError(socket, "CANNOT_RESIGN", "There is no active game to resign from.");
+    room.result = player.color === "w" ? "white-resigned" : "black-resigned";
+    room.drawOfferBy = null;
+    this.io.to(gameId!).emit("game:state", this.toSnapshot(room));
   }
 
   private leaveGame(socket: ChessSocket): void {
@@ -159,9 +197,10 @@ export class GameRoomService {
     const game = room.game.getSnapshot();
     return {
       gameId: room.id,
-      phase: game.isGameOver ? "finished" : room.black ? "active" : "waiting",
+      phase: (game.isGameOver || room.result) ? "finished" : room.black ? "active" : "waiting",
       fen: game.fen, turn: game.turn, board: game.board, status: game.status,
-      isGameOver: game.isGameOver, pgn: game.pgn,
+      isGameOver: game.isGameOver || !!room.result, pgn: game.pgn,
+      result: room.result, drawOfferBy: room.drawOfferBy,
       moveHistory: game.moveHistory.map(move => ({
         color: move.color, from: move.from, to: move.to, piece: move.piece,
         san: move.san, lan: move.lan, flags: move.flags, before: move.before, after: move.after,
