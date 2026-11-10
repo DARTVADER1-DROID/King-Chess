@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: king-chess-api
+    runtime: docker
+    plan: free
+    region: singapore
+    branch: refactor/analysis-engine-modularity
+    autoDeployTrigger: 'off'
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: WEB_ORIGIN
+        value: https://king-chess-web-yrlt.onrender.com
+
+  - type: web
+    name: king-chess-web
+    runtime: static
+    branch: refactor/analysis-engine-modularity
+    autoDeployTrigger: 'off'
+    buildCommand: pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/web build
+    staticPublishPath: apps/web/dist
+    envVars:
+      - key: SKIP_INSTALL_DEPS
+        value: "true"
+      - key: VITE_API_URL
+        value: https://king-chess-api-yrlt.onrender.com
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
