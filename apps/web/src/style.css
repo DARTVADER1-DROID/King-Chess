@@ -227,3 +227,18 @@ h1 em { color: #6e8d79; font-style: normal; font-weight: 520; }
 .board-actions .quiet-button { flex: 1 1 auto; }
 .draw-notice { margin: 9px 0 0; color: #85672f; font-size: 10px; line-height: 1.45; }
 .result-note { margin: 9px 0 0; color: #6b6b72; font-size: 10px; line-height: 1.45; }
+
+
+/* Optional live evaluation bar beside the board. */
+.board-with-eval { display: flex; align-items: stretch; gap: 8px; width: 100%; min-width: 0; }
+.board-with-eval .board-frame { flex: 1 1 auto; min-width: 0; }
+.evaluation-bar-column { display: flex; flex: 0 0 27px; flex-direction: column; align-items: center; gap: 5px; min-height: 0; padding: 2px 0; }
+.evaluation-bar-score { color: #555b56; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; font-weight: 700; white-space: nowrap; }
+.evaluation-bar-track { position: relative; flex: 1 1 auto; width: 17px; min-height: 0; overflow: hidden; border: 1px solid #c9c9c5; border-radius: 4px; background: #252a27; box-shadow: inset 0 1px 3px #0002; }
+.evaluation-bar-white { position: absolute; right: 0; bottom: 0; left: 0; background: #f5f4ed; transition: height .35s ease; }
+.evaluation-bar-piece { color: #424b44; font-size: 16px; line-height: 1; }
+.eval-toggle.active { border-color: #9bb5a1; background: #edf5ef; color: #2d6642; }
+@media (max-width: 420px) {
+  .evaluation-bar-column { flex-basis: 23px; }
+  .evaluation-bar-track { width: 14px; }
+}
