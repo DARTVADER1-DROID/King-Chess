@@ -16,7 +16,7 @@ export function useMultiplayerGame() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const socket = io<ServerToClientEvents, ClientToServerEvents>();
+    const socket = io() as ChessSocket;
     socketRef.current = socket;
 
     socket.on("connect", () => {
