@@ -5,7 +5,7 @@ services:
     plan: free
     region: singapore
     branch: refactor/analysis-engine-modularity
-    autoDeploy: false
+    autoDeployTrigger: off
     buildCommand: corepack enable && pnpm install --no-frozen-lockfile && pnpm --filter @king-chess/server build
     startCommand: pnpm --filter @king-chess/server start
     healthCheckPath: /api/health
@@ -14,8 +14,6 @@ services:
         value: "22"
       - key: WEB_ORIGIN
         value: https://king-chess-web.onrender.com
-      - key: STOCKFISH_PATH
-        value: stockfish
 
   - type: web
     name: king-chess-web
