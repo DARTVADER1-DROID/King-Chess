@@ -5,14 +5,13 @@ This is the handover note for pausing active King Chess development. It records 
 ## Current project state
 
 - Repository: `DARTVADER1-DROID/King-Chess` (private).
-- Working branch: `refactor/analysis-engine-modularity`.
 - Default branch: `main`.
-- Draft pull request: [#1 — Add Stockfish analysis and modularize chess backend](https://github.com/DARTVADER1-DROID/King-Chess/pull/1).
-- The draft PR is intentionally not merged.
+- The former draft PR #1 was merged into `main` on 2026-11-10.
+- Current development work should use a branch created from the latest `main`; inspect open PRs rather than assuming a fixed PR number or branch head.
 - Render automatic deploys are disabled in `render.yaml`.
-- Documentation work should not alter application behavior or trigger a deployment.
+- Code changes and CI do not authorize a production deployment.
 
-Always inspect the latest branch and PR head before resuming. The PR head may move while this note remains unchanged.
+Always inspect the latest `main` commit, active branch heads, open PRs and CI before resuming. Do not use an old branch as the source of truth.
 
 ## Implemented product surface
 
@@ -34,7 +33,7 @@ Refer to the root README and architecture guide for behavior and API details.
 
 Account domain/service/repository code and the initial SQL migration are retained for later work, but account routes are disabled. Requests to `/api/accounts` return HTTP 503. The running server does not connect to PostgreSQL and does not require `DATABASE_URL`.
 
-Do not create a database, enable account routes or reuse another project’s database without a separate explicit decision. Before enabling accounts, complete database provisioning, migration execution, email verification, password reset, login throttling, CSRF/origin protection and end-to-end persistence tests.
+Do not create a database, enable account routes or reuse another project's database without a separate explicit decision. Before enabling accounts, complete database provisioning, migration execution, email verification, password reset, login throttling, CSRF/origin protection and end-to-end persistence tests.
 
 ### Not implemented yet
 
@@ -45,6 +44,7 @@ Do not create a database, enable account routes or reuse another project’s dat
 - Multiplayer reconnect/resume, matchmaking, persistent games and multi-instance room coordination.
 - Player accounts, ratings and profiles.
 - Clocks, promotion selection UI and full online game lifecycle polish.
+- Full browser-level end-to-end coverage across two independent browser contexts.
 
 ## Known technical risks
 
@@ -63,11 +63,11 @@ See [architecture-and-review.md](./architecture-and-review.md) for details and s
 ## Suggested restart sequence
 
 1. Read this file, [README.md](../README.md), [DEPLOYMENT.md](../DEPLOYMENT.md) and [architecture-and-review.md](./architecture-and-review.md).
-2. Inspect the latest branch head, open PR #1, and CI status. Do not assume the branch SHA recorded in a previous session is still current.
+2. Inspect the latest `main` commit, open PRs, active branch heads and CI status. Do not assume a previous branch or PR number is still current.
 3. Check the live Render services and deployment history without changing them.
-4. Run `pnpm install`, `pnpm typecheck`, `pnpm build` and `pnpm test` on the latest branch.
+4. Run `pnpm install`, `pnpm typecheck`, `pnpm build` and `pnpm test` on the latest development branch.
 5. Reproduce any reported issue locally before changing code.
-6. Prioritize Stockfish lifecycle/cancellation/concurrency and two-browser integration tests before adding more user-facing features.
+6. Prioritize Stockfish lifecycle, cancellation, bounded concurrency and analysis abuse protection. The server now has a real Socket.IO client/server integration test; retain browser-level multiplayer regression coverage as a separate validation step.
 7. Deploy only after explicit approval and a reviewed smoke-test plan.
 
 ## Documentation maintenance

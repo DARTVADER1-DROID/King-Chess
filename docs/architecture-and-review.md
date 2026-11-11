@@ -1,6 +1,6 @@
 # Architecture and code review
 
-This document describes the implementation on `refactor/analysis-engine-modularity`. It is a code-level guide, not a claim that every production scenario has been load-tested.
+This document describes the implementation on `main`. It is a code-level guide, not a claim that every production scenario has been load-tested.
 
 ## System overview
 
@@ -107,7 +107,7 @@ Important details:
 | `game:joined` | Joining player receives the room snapshot. |
 | `game:state` | Players receive an updated authoritative snapshot. |
 | `game:error` | Command rejected; includes a code and message. |
-| `game:ended` | Room ended because a player left or disconnected. |
+| `game:ended` | Room ended because a player left or disconnects. |
 
 The exact TypeScript payload definitions are in `packages/shared/src/index.ts`.
 
@@ -151,7 +151,7 @@ Do not assume the server CPU is the sole analysis bottleneck without collecting 
 
 ## Tests and verification
 
-The server uses Node's test runner through `tsx --test`. Existing tests cover chess domain behavior, room service commands, analysis validation and UCI info parsing.
+The server uses Node's test runner through `tsx --test`. Unit tests cover chess domain behavior, room service commands, analysis validation and UCI info parsing. A real Socket.IO integration test now starts the actual server transport and connects independent clients; it verifies room creation/joining, turn enforcement, legal and illegal move handling, identical authoritative snapshots, spectator rejection and disconnect cleanup. It exercises the live Socket.IO protocol, but it is not a browser automation test.
 
 Useful commands:
 
@@ -161,10 +161,9 @@ pnpm build
 pnpm test
 ```
 
-A passing unit suite does not replace:
+A passing test suite does not replace:
 - A real Stockfish executable lifecycle test.
-- Two-browser Socket.IO integration tests.
-- Browser/UI regression tests.
+- Browser/UI regression tests using two separate browser contexts.
 - Concurrent analysis and timeout/recovery tests.
 - Render smoke tests after an explicitly approved deployment.
 
