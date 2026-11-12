@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AnalysisQueue, AnalysisQueueFullError } from "../src/application/analysis/AnalysisQueue.js";
 import { AnalysisService } from "../src/analysis/AnalysisService.js";
-import type { ChessEngine, EngineAnalysis } from "../src/analysis/engine/EnginePort.js";
+import type { ChessEngine } from "../src/analysis/engine/EnginePort.js";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
@@ -10,22 +10,6 @@ function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
   const promise = new Promise<T>(done => { resolve = done; });
   return { promise, resolve };
-}
-
-function result(depth: number): EngineAnalysis {
-  return {
-    bestMove: "e2e4",
-    score: { kind: "centipawns", value: 20, perspective: "side-to-move" },
-    depth,
-    nodes: 100,
-    timeMs: 5,
-    principalVariation: ["e2e4"],
-    lines: [{
-      rank: 1, move: "e2e4",
-      score: { kind: "centipawns", value: 20, perspective: "side-to-move" },
-      depth, nodes: 100, timeMs: 5, moves: ["e2e4"]
-    }]
-  };
 }
 
 test("serializes engine work and bounds the waiting queue", async () => {
