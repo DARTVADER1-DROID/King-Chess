@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { AnalysisQueue, AnalysisQueueFullError } from "../src/application/analysis/AnalysisQueue.js";
 import { AnalysisService } from "../src/analysis/AnalysisService.js";
-import type { ChessEngine } from "../src/analysis/engine/EnginePort.js";
+import type { ChessEngine, EngineAnalysis } from "../src/analysis/engine/EnginePort.js";
 
 const START_FEN = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
 
