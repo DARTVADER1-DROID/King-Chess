@@ -115,7 +115,7 @@ Request:
 - Scores are expressed from the **side-to-move perspective**.
 - Invalid input returns HTTP 400. Engine failures return HTTP 503.
 
-The current server uses one shared Stockfish process and allows one search at a time. Searches request three candidate lines. See [Architecture and review](docs/architecture-and-review.md) for operational constraints.
+The current server uses one shared Stockfish process, with one active search and up to two queued requests. Further requests receive HTTP 429 rather than creating unbounded work. Client disconnects and stale browser analysis requests cancel queued work or send UCI `stop` to the active search. Searches have a 60-second limit; an engine that does not stop is discarded and restarted lazily. Searches request three candidate lines. See [Architecture and review](docs/architecture-and-review.md) for operational constraints.
 
 ### Player accounts
 
