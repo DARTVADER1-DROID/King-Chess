@@ -123,14 +123,15 @@ export class UciStockfishEngine implements ChessEngine {
         this.latestInfos.set(index, { ...previous, ...info });
       }
     }
-    this.lineBuffer.push(line);
-    if (this.lineBuffer.length > 100) this.lineBuffer.shift();
     const index = this.waiters.findIndex(waiter => waiter.predicate(line));
     if (index >= 0) {
       const [waiter] = this.waiters.splice(index, 1);
       clearTimeout(waiter.timer);
       waiter.resolve(line);
+      return;
     }
+    this.lineBuffer.push(line);
+    if (this.lineBuffer.length > 100) this.lineBuffer.shift();
   }
 
   private failAll(error: Error): void {
@@ -196,7 +197,7 @@ export class UciStockfishEngine implements ChessEngine {
     if (this.busy) throw new Error("The analysis engine received overlapping work.");
 
     this.busy = true;
-    this.activeAnalysisDone = new Promise(resolve => { this.resolveActiveAnalysis = resolve; });
+    this.activeAnalysisDone = new Promise<void>(resolve => { this.resolveActiveAnalysis = () => resolve(); });
     try {
       await this.start();
       if (this.closing || signal?.aborted) throw createAbortError();
@@ -226,6 +227,7 @@ export class UciStockfishEngine implements ChessEngine {
       try {
         child.stdin.write("go depth " + depth + "\n");
         signal?.addEventListener("abort", onAbort, { once: true });
+        this.activeAbort = onAbort;
         if (signal?.aborted || this.closing) onAbort();
 
         let bestLine: string;
