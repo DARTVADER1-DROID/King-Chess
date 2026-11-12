@@ -1,6 +1,6 @@
 # Architecture and code review
 
-This document describes the implementation currently merged into `main`, plus explicitly identified operational constraints. It is a code-level guide, not a claim that every production scenario has been load-tested.
+This document describes the implementation on `refactor/analysis-engine-modularity`. It is a code-level guide, not a claim that every production scenario has been load-tested.
 
 ## System overview
 
@@ -30,7 +30,6 @@ The browser owns presentation and local/AI game interaction. For online games, t
 | `apps/server/src/domain/chess/ChessGame.ts` | Canonical chess position, legal moves, FEN/PGN and game status. |
 | `apps/server/src/application/games/GameRoomService.ts` | Room creation/joining, player seats, commands, draw/resign and snapshot broadcasting. |
 | `apps/server/src/analysis/AnalysisService.ts` | Validates FEN/depth and coordinates analysis use cases. |
-| `apps/server/src/application/analysis/AnalysisQueue.ts` | Serializes access to the single Stockfish process and bounds pending requests. |
 | `apps/server/src/analysis/engine/EnginePort.ts` | Engine abstraction consumed by the analysis service. |
 | `apps/server/src/infrastructure/engine/UciStockfishEngine.ts` | Starts and controls the Stockfish child process using UCI. |
 | `apps/server/src/transport/http` | Fastify HTTP route adapters. |
@@ -76,9 +75,8 @@ Important details:
 - Allowed depth is 1–22; default is 15.
 - Candidate count is currently fixed to three by `AnalysisService`.
 - Scores are from the side-to-move perspective, not always White's perspective.
-- One shared engine process supports one active search and up to two queued requests. Requests beyond the bounded queue receive HTTP 429.
-- Searches wait up to 60 seconds for `bestmove`. On timeout the adapter sends `stop` and waits up to five seconds; if the process does not recover, it is discarded and restarted lazily for the next request.
-- Client disconnects cancel queued requests or send UCI `stop` to the active search. Server shutdown also cancels active work, sends `quit`, and force-kills the process if it does not exit within 1.5 seconds.
+- One shared engine process supports one active search. A concurrent request receives an engine-busy error, which the route maps to HTTP 503.
+- The engine waits up to 30 seconds for `bestmove`; after timeout it sends `stop` and waits up to five seconds for recovery.
 - The evaluation bar reflects the last manual analysis response. It is not live analysis and can be stale/empty after the board changes.
 
 ## HTTP and realtime contracts
@@ -86,7 +84,7 @@ Important details:
 ### HTTP
 
 - `GET /api/health`: API liveness/configuration response. It does not verify that Stockfish can start.
-- `POST /api/analysis`: FEN/depth analysis. Invalid requests return HTTP 400, a full bounded queue returns HTTP 429, and engine failures return HTTP 503.
+- `POST /api/analysis`: FEN/depth analysis.
 - `/api/accounts` and `/api/accounts/*`: deliberately return HTTP 503 while player accounts are paused.
 
 ### Socket.IO client-to-server events
@@ -138,10 +136,10 @@ These are implementation observations, not measured production performance resul
 
 | Priority | Area | Current limitation | Suggested next step |
 |---|---|---|---|
-| High | Stockfish concurrency | One process and one active slot; two requests may wait in the bounded queue. | Measure queue wait and engine throughput before considering a worker pool. |
-| High | Search lifecycle | Search timeout and stop/restart recovery are implemented, but real-process fault injection and production timing remain unverified. | Exercise timeout/restart paths against the packaged Stockfish binary and collect duration/NPS metrics. |
-| Medium | Request cancellation | Browser and HTTP disconnect cancellation now reaches queued work and active UCI searches. | Add browser-level tests for rapid position changes and client disconnect during analysis. |
-| High | Public analysis endpoint | Queue capacity is bounded, but there is no authentication, per-IP rate limiting or result cache. | Add per-client limits and a cache keyed by FEN/depth/options before exposing the endpoint broadly. |
+| High | Stockfish concurrency | One process and one search slot; overlapping requests fail instead of queueing. | Add a bounded queue and explicit busy/queue responses; consider a worker pool only after CPU measurements. |
+| High | Search lifecycle | 30-second wait may be too short for depth 22; failed stop recovery does not explicitly restart the engine. | Separate startup/search timeouts, log depth/nodes/NPS/duration, restart on protocol desynchronization. |
+| High | Request cancellation | Browser cancellation does not propagate to the running UCI search. Manual analysis can also return after the position changes. | Propagate cancellation to `stop`; guard responses with request ID and FEN. |
+| High | Public analysis endpoint | No authentication, rate limiting, bounded queue or result cache. | Add per-IP/client limits, bounded queue, HTTP 429 and cache keyed by FEN/depth/options. |
 | Medium | Multiplayer lifecycle | Rooms live in a process-local Map; disconnect ends a game; restarts clear all rooms. | Add reconnect grace/resume and persistence only when product requirements justify it. |
 | Medium | Socket connection | The multiplayer hook opens a Socket.IO connection on app mount, including AI/local sessions. | Connect lazily when Online mode is entered. |
 | Medium | Health/readiness | Health endpoint reports API liveness and config only; it does not perform an engine readiness check. | Separate liveness from readiness and expose safe engine diagnostics. |
