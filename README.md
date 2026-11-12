@@ -129,7 +129,7 @@ Room state is held in memory. A server restart or player disconnect ends the roo
 
 ## Deployment
 
-The Render Blueprint is `render.yaml`; service configuration and smoke-test instructions are in [DEPLOYMENT.md](DEPLOYMENT.md). Automatic deploys are disabled. Do not merge the draft pull request or trigger a production deployment as part of routine documentation work.
+The Render Blueprint is `render.yaml`; service configuration and smoke-test instructions are in [DEPLOYMENT.md](DEPLOYMENT.md). Automatic deploys are disabled. Do not merge an open draft pull request or trigger a production deployment as part of routine documentation work.
 
 ## Further documentation
 
