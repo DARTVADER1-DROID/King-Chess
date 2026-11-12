@@ -5,12 +5,11 @@ This is the handover note for pausing active King Chess development. It records 
 ## Current project state
 
 - Repository: `DARTVADER1-DROID/King-Chess` (private).
-- Working branch: `refactor/analysis-engine-modularity`.
-- Default branch: `main`.
-- Draft pull request: [#1 — Add Stockfish analysis and modularize chess backend](https://github.com/DARTVADER1-DROID/King-Chess/pull/1).
-- The draft PR is intentionally not merged.
-- Render automatic deploys are disabled in `render.yaml`.
-- Documentation work should not alter application behavior or trigger a deployment.
+- Default branch: `main` (latest inspected main commit: `28e42240`).
+- Pull request #1, which introduced the modular backend and application features, is merged.
+- Draft pull request [#2 — Add real Socket.IO multiplayer integration coverage](https://github.com/DARTVADER1-DROID/King-Chess/pull/2) remains separate from main pending review.
+- New development branches should start from the latest `main` commit and must not overwrite the independent PR #2 work.
+- Render automatic deploys are disabled in `render.yaml`; branch pushes do not publish a deployment.
 
 Always inspect the latest branch and PR head before resuming. The PR head may move while this note remains unchanged.
 
