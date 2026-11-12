@@ -5,11 +5,12 @@ This is the handover note for pausing active King Chess development. It records 
 ## Current project state
 
 - Repository: `DARTVADER1-DROID/King-Chess` (private).
-- Default branch: `main` (latest inspected main commit: `28e42240`).
-- Pull request #1, which introduced the modular backend and application features, is merged.
-- Draft pull request [#2 — Add real Socket.IO multiplayer integration coverage](https://github.com/DARTVADER1-DROID/King-Chess/pull/2) remains separate from main pending review.
-- New development branches should start from the latest `main` commit and must not overwrite the independent PR #2 work.
-- Render automatic deploys are disabled in `render.yaml`; branch pushes do not publish a deployment.
+- Working branch: `refactor/analysis-engine-modularity`.
+- Default branch: `main`.
+- Draft pull request: [#1 — Add Stockfish analysis and modularize chess backend](https://github.com/DARTVADER1-DROID/King-Chess/pull/1).
+- The draft PR is intentionally not merged.
+- Render automatic deploys are disabled in `render.yaml`.
+- Documentation work should not alter application behavior or trigger a deployment.
 
 Always inspect the latest branch and PR head before resuming. The PR head may move while this note remains unchanged.
 
@@ -40,17 +41,17 @@ Do not create a database, enable account routes or reuse another project’s dat
 - Calibrated AI opponent Elo levels. Current AI presets are depth presets only.
 - Live/automatic evaluation-bar refresh.
 - Client-side Stockfish WASM.
-- Per-client analysis rate limiting and result caching.
+- Analysis queue, cancellation, rate limiting and caching.
 - Multiplayer reconnect/resume, matchmaking, persistent games and multi-instance room coordination.
 - Player accounts, ratings and profiles.
 - Clocks, promotion selection UI and full online game lifecycle polish.
 
 ## Known technical risks
 
-1. One shared Stockfish process accepts one active search at a time; up to two requests can wait in the bounded queue.
-2. Depth-22 searches can exceed the 60-second search limit on constrained compute.
-3. UCI cancellation and process recovery are implemented but still need real-process fault-injection and production verification.
-4. Public analysis has no authentication, per-client rate limiter or result cache.
+1. One shared Stockfish process accepts one active search at a time.
+2. Depth-22 searches can exceed the current 30-second wait on constrained compute.
+3. Search cancellation is not propagated from HTTP clients to UCI.
+4. Public analysis has no rate limiter or bounded queue.
 5. Socket.IO connects even for local/AI-only use.
 6. Health endpoint does not prove Stockfish readiness.
 7. Multiplayer rooms are memory-only and end on disconnect/restart.
