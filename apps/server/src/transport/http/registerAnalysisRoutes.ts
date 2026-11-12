@@ -21,7 +21,7 @@ export async function registerAnalysisRoutes(app: FastifyInstance, service: Anal
       if (controller.signal.aborted || isAbortError(error)) return;
       if (error instanceof AnalysisInputError) return reply.code(400).send({ error: error.message });
       if (error instanceof AnalysisQueueFullError) {
-        return reply.code(429).header("retry-after", "2").send({ error: "Analysis capacity is full. Retry shortly." });
+        return reply.code(429).send({ error: "Analysis capacity is full. Retry shortly." });
       }
       if (error instanceof AnalysisUnavailableError) {
         app.log.error({ err: error }, "Chess analysis failed");
