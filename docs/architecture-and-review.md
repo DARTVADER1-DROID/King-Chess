@@ -1,6 +1,6 @@
 # Architecture and code review
 
-This document describes the implementation on `refactor/analysis-engine-modularity`. It is a code-level guide, not a claim that every production scenario has been load-tested.
+This document describes the implementation currently merged into `main`, plus explicitly identified operational constraints. It is a code-level guide, not a claim that every production scenario has been load-tested.
 
 ## System overview
 
