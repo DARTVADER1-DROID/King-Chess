@@ -187,7 +187,11 @@ export class UciStockfishEngine implements ChessEngine {
   ): Promise<string> {
     if (!this.child) throw new Error("Stockfish process is not running.");
     const response = this.waitForLine(predicate, timeoutMs);
-    this.child.stdin.write(command + "\n");
+    try {
+      this.child.stdin.write(command + "\n");
+    } catch (error) {
+      this.discardProcess(error instanceof Error ? error : new Error("Stockfish command failed."));
+    }
     return response;
   }
 
@@ -207,11 +211,21 @@ export class UciStockfishEngine implements ChessEngine {
       this.latestInfos.clear();
       this.lineBuffer = [];
       const candidateCount = Math.max(1, Math.min(5, Math.floor(multiPv)));
-      child.stdin.write("setoption name MultiPV value " + candidateCount + "\n");
+      try {
+        child.stdin.write("setoption name MultiPV value " + candidateCount + "\n");
+      } catch (error) {
+        this.discardProcess(error instanceof Error ? error : new Error("Stockfish option update failed."));
+        throw error;
+      }
       await this.commandAndWait("isready", line => line === "readyok", STARTUP_TIMEOUT_MS);
       if (this.closing || signal?.aborted) throw createAbortError();
 
-      child.stdin.write("position fen " + fen + "\n");
+      try {
+        child.stdin.write("position fen " + fen + "\n");
+      } catch (error) {
+        this.discardProcess(error instanceof Error ? error : new Error("Stockfish position command failed."));
+        throw error;
+      }
       const bestMovePromise = this.waitForLine(line => line.startsWith("bestmove "), SEARCH_TIMEOUT_MS);
       let abortRequested = false;
       let abortStopTimer: ReturnType<typeof setTimeout> | null = null;
@@ -225,7 +239,13 @@ export class UciStockfishEngine implements ChessEngine {
       };
 
       try {
-        child.stdin.write("go depth " + depth + "\n");
+        try {
+          child.stdin.write("go depth " + depth + "\n");
+        } catch (error) {
+          this.discardProcess(error instanceof Error ? error : new Error("Stockfish search command failed."));
+          await bestMovePromise.catch(() => undefined);
+          throw error;
+        }
         signal?.addEventListener("abort", onAbort, { once: true });
         this.activeAbort = onAbort;
         if (signal?.aborted || this.closing) onAbort();
