@@ -41,17 +41,17 @@ Do not create a database, enable account routes or reuse another project’s dat
 - Calibrated AI opponent Elo levels. Current AI presets are depth presets only.
 - Live/automatic evaluation-bar refresh.
 - Client-side Stockfish WASM.
-- Analysis queue, cancellation, rate limiting and caching.
+- Per-client analysis rate limiting and result caching.
 - Multiplayer reconnect/resume, matchmaking, persistent games and multi-instance room coordination.
 - Player accounts, ratings and profiles.
 - Clocks, promotion selection UI and full online game lifecycle polish.
 
 ## Known technical risks
 
-1. One shared Stockfish process accepts one active search at a time.
-2. Depth-22 searches can exceed the current 30-second wait on constrained compute.
-3. Search cancellation is not propagated from HTTP clients to UCI.
-4. Public analysis has no rate limiter or bounded queue.
+1. One shared Stockfish process accepts one active search at a time; up to two requests can wait in the bounded queue.
+2. Depth-22 searches can exceed the 60-second search limit on constrained compute.
+3. UCI cancellation and process recovery are implemented but still need real-process fault-injection and production verification.
+4. Public analysis has no authentication, per-client rate limiter or result cache.
 5. Socket.IO connects even for local/AI-only use.
 6. Health endpoint does not prove Stockfish readiness.
 7. Multiplayer rooms are memory-only and end on disconnect/restart.
