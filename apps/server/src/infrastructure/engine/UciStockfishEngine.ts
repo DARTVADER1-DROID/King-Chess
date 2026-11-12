@@ -66,7 +66,10 @@ export class UciStockfishEngine implements ChessEngine {
   private activeAnalysisDone: Promise<void> | null = null;
   private resolveActiveAnalysis: (() => void) | null = null;
 
-  constructor(private readonly executablePath = process.env.STOCKFISH_PATH ?? "stockfish") {}
+  constructor(
+    private readonly executablePath = process.env.STOCKFISH_PATH ?? "stockfish",
+    private readonly spawnProcess: typeof spawn = spawn
+  ) {}
 
   private async start(): Promise<void> {
     if (this.closing) throw new Error("Stockfish is shutting down.");
@@ -75,7 +78,7 @@ export class UciStockfishEngine implements ChessEngine {
 
     this.startup = (async () => {
       this.lineBuffer = [];
-      const child = spawn(this.executablePath, [], { stdio: ["pipe", "pipe", "pipe"] });
+      const child = this.spawnProcess(this.executablePath, [], { stdio: ["pipe", "pipe", "pipe"] });
       this.child = child;
       const reader = createInterface({ input: child.stdout });
       this.reader = reader;
