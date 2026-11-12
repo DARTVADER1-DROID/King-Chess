@@ -84,7 +84,7 @@ Use two separate browsers or devices for online multiplayer.
 ## Operational limitations
 
 - Render Free services may spin down after inactivity; the first HTTP request or Socket.IO connection after idle can be slow.
-- Deep Stockfish searches can be slow on small shared compute. The API currently has one Stockfish process, one active search slot, a 30-second search wait and no queue/rate limiter.
+- Deep Stockfish searches can be slow on small shared compute. The API uses one Stockfish process, one active search slot and a bounded queue of two waiting requests. Requests beyond that capacity receive HTTP 429. Searches have a 60-second timeout; disconnected clients cancel queued work or stop active UCI searches. This is not a substitute for per-client/IP rate limiting.
 - `GET /api/health` reports API liveness/configuration; it does not launch Stockfish or guarantee analysis readiness.
 - Multiplayer rooms are process-local. A restart clears active rooms; disconnect ends a room. Use one API instance until shared room coordination is implemented.
 - No automatic deploys are configured. Keep the draft PR unmerged until the owner has completed the desired testing and explicitly approves integration.

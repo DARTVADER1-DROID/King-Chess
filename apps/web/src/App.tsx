@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
 import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
@@ -74,6 +74,8 @@ export default function App() {
   const [previewCandidate, setPreviewCandidate] = useState<number | null>(null);
   const [previewPly, setPreviewPly] = useState(0);
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
+  const manualAnalysisController = useRef<AbortController | null>(null);
+  const manualAnalysisRequestId = useRef(0);
   const [username, setUsername] = useState("Player");
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
@@ -97,6 +99,17 @@ export default function App() {
     setPreviewCandidate(null);
     setPreviewPly(0);
   }, [multiplayer.room]);
+
+  useEffect(() => {
+    manualAnalysisRequestId.current += 1;
+    manualAnalysisController.current?.abort();
+    manualAnalysisController.current = null;
+    setAnalyzing(false);
+    return () => {
+      manualAnalysisRequestId.current += 1;
+      manualAnalysisController.current?.abort();
+    };
+  }, [fen, analysisEnabled, mode, multiplayer.room?.gameId]);
 
   const game = useMemo(() => {
     const current = new Chess();
@@ -252,6 +265,10 @@ export default function App() {
 
   async function analyzePosition() {
     if (!analysisEnabled) return;
+    manualAnalysisController.current?.abort();
+    const controller = new AbortController();
+    manualAnalysisController.current = controller;
+    const requestId = ++manualAnalysisRequestId.current;
     setAnalyzing(true);
     setAnalysisError("");
     setAnalysis(null);
@@ -261,15 +278,23 @@ export default function App() {
       const response = await fetch(apiUrl("/api/analysis"), {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fen, depth })
+        body: JSON.stringify({ fen, depth }),
+        signal: controller.signal
       });
       const data = await response.json() as AnalysisResponse | { error?: string };
       if (!response.ok) throw new Error("error" in data && data.error ? data.error : "Analysis request failed.");
-      setAnalysis(data as AnalysisResponse);
+      if (requestId === manualAnalysisRequestId.current && !controller.signal.aborted) {
+        setAnalysis(data as AnalysisResponse);
+      }
     } catch (error) {
-      setAnalysisError(error instanceof Error ? error.message : "Could not reach the analysis engine.");
+      if (requestId === manualAnalysisRequestId.current && !controller.signal.aborted) {
+        setAnalysisError(error instanceof Error ? error.message : "Could not reach the analysis engine.");
+      }
     } finally {
-      setAnalyzing(false);
+      if (requestId === manualAnalysisRequestId.current) {
+        setAnalyzing(false);
+        if (manualAnalysisController.current === controller) manualAnalysisController.current = null;
+      }
     }
   }
 

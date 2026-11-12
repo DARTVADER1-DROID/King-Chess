@@ -113,9 +113,9 @@ Request:
 - `depth` is optional; defaults to 15 and must be an integer from 1 through 22.
 - Response includes the normalized FEN, best move, score, completed depth, nodes, elapsed engine time, principal variation and candidate lines.
 - Scores are expressed from the **side-to-move perspective**.
-- Invalid input returns HTTP 400. Engine failures return HTTP 503.
+- Invalid input returns HTTP 400, a full analysis queue returns HTTP 429, and engine failures return HTTP 503.
 
-The current server uses one shared Stockfish process and allows one search at a time. Searches request three candidate lines. See [Architecture and review](docs/architecture-and-review.md) for operational constraints.
+The current server uses one shared Stockfish process, with one active search and up to two queued requests. Further requests receive HTTP 429 rather than creating unbounded work. Client disconnects and stale browser analysis requests cancel queued work or send UCI `stop` to the active search. Searches have a 60-second limit; an engine that does not stop is discarded and restarted lazily. Searches request three candidate lines. See [Architecture and review](docs/architecture-and-review.md) for operational constraints.
 
 ### Player accounts
 
@@ -129,7 +129,7 @@ Room state is held in memory. A server restart or player disconnect ends the roo
 
 ## Deployment
 
-The Render Blueprint is `render.yaml`; service configuration and smoke-test instructions are in [DEPLOYMENT.md](DEPLOYMENT.md). Automatic deploys are disabled. Do not merge the draft pull request or trigger a production deployment as part of routine documentation work.
+The Render Blueprint is `render.yaml`; service configuration and smoke-test instructions are in [DEPLOYMENT.md](DEPLOYMENT.md). Automatic deploys are disabled. Do not merge an open draft pull request or trigger a production deployment as part of routine documentation work.
 
 ## Further documentation
 

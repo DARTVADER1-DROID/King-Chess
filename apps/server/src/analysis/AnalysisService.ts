@@ -1,6 +1,7 @@
 import { Chess } from "chess.js";
 import type { AnalysisRequest, AnalysisResponse } from "@king-chess/shared";
 import type { ChessEngine } from "./engine/EnginePort.js";
+import { AnalysisQueue, AnalysisQueueFullError } from "../application/analysis/AnalysisQueue.js";
 
 export class AnalysisInputError extends Error {}
 export class AnalysisUnavailableError extends Error {}
@@ -10,10 +11,24 @@ const MAX_DEPTH = 22;
 const MAX_FEN_LENGTH = 128;
 const CANDIDATE_LINES = 3;
 
-export class AnalysisService {
-  constructor(private readonly engine: ChessEngine) {}
+function isAbortError(error: unknown): boolean {
+  return error instanceof Error && error.name === "AbortError";
+}
 
-  async analyze(input: unknown): Promise<AnalysisResponse> {
+function createAbortError(): Error {
+  const error = new Error("Analysis request was cancelled.");
+  error.name = "AbortError";
+  return error;
+}
+
+export class AnalysisService {
+  constructor(
+    private readonly engine: ChessEngine,
+    private readonly queue = new AnalysisQueue(2)
+  ) {}
+
+  async analyze(input: unknown, signal?: AbortSignal): Promise<AnalysisResponse> {
+    if (signal?.aborted) throw createAbortError();
     if (typeof input !== "object" || input === null || Array.isArray(input)) {
       throw new AnalysisInputError("Request body must be an object.");
     }
@@ -33,9 +48,13 @@ export class AnalysisService {
     if (chess.isGameOver()) throw new AnalysisInputError("This position is already terminal.");
 
     try {
-      const result = await this.engine.analyze(fen, depth, CANDIDATE_LINES);
+      const result = await this.queue.run(
+        () => this.engine.analyze(fen, depth, CANDIDATE_LINES, signal),
+        signal
+      );
       return { fen, ...result };
     } catch (error) {
+      if (isAbortError(error) || error instanceof AnalysisQueueFullError) throw error;
       throw new AnalysisUnavailableError(error instanceof Error ? error.message : "Analysis engine unavailable.");
     }
   }
