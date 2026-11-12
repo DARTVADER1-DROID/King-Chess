@@ -54,6 +54,7 @@ export class AnalysisQueue {
         reject
       };
 
+      this.pending.push(job);
       if (signal) {
         job.abortListener = () => {
           const index = this.pending.indexOf(job);
@@ -63,13 +64,8 @@ export class AnalysisQueue {
           reject(createAbortError());
         };
         signal.addEventListener("abort", job.abortListener, { once: true });
-        if (signal.aborted) {
-          job.abortListener();
-          return;
-        }
+        if (signal.aborted) job.abortListener();
       }
-
-      this.pending.push(job);
     });
   }
 
