@@ -49,7 +49,7 @@ test("rejects Elo values outside Stockfish supported bounds", async () => {
 test("keeps unrestricted engine strength when Elo is omitted", async () => {
   let argumentCount = 0;
   const engine: ChessEngine = {
-    async analyze(...args) {
+    async analyze(...args: Parameters<ChessEngine["analyze"]>) {
       argumentCount = args.length;
       const depth = args[1];
       return { bestMove: "e2e4", score: null, depth, nodes: 1, timeMs: 1, principalVariation: ["e2e4"], lines: [] };
