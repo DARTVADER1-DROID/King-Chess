@@ -109,8 +109,10 @@ class WorkspaceFunctionalTests(unittest.TestCase):
             self.assertEqual(self.page.locator(".analysis-card").count(), 0, route)
         self.page.goto(f"{BASE_URL}/#analysis", wait_until="networkidle")
         self.assertEqual(self.page.locator(".analysis-card").count(), 1)
+        depth_options = self.page.locator(".analysis-card .depth-option")
+        self.assertEqual(depth_options.count(), 5)
         for depth in ("Quick", "Standard", "Deep", "Very deep", "Maximum"):
-            self.assertEqual(self.page.get_by_role("button", name=depth).count(), 1)
+            self.assertEqual(self.page.locator(".analysis-card").get_by_role("button", name=depth).count(), 1)
 
     def test_history_hides_board_but_retains_move_list_workspace(self):
         self.page.goto(f"{BASE_URL}/#history", wait_until="networkidle")
@@ -159,7 +161,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.page.route("**/api/analysis", capture_analysis)
         self.page.goto(f"{BASE_URL}/#ai", wait_until="networkidle")
         self.page.get_by_role("button", name="1900", exact=True).click()
-        self.page.get_by_role("button", name="e2 white pawn").click()
+        self.page.get_by_role("button", name="e2 white p").click()
         with self.page.expect_request("**/api/analysis", timeout=5000) as request_info:
             self.page.get_by_role("button", name="e4").click()
         self.assertTrue(payloads, "AI request should be sent after the human move.")
