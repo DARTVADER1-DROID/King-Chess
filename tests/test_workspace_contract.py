@@ -18,7 +18,7 @@ class WorkspaceContractTests(unittest.TestCase):
         self.assertIsNotNone(match, "Route whitelist must contain exactly the six supported pages.")
 
     def test_unknown_hash_falls_back_to_ai(self):
-        self.assertRegex(APP, r'PAGE_FROM_HASH\s*=\s*\(\)\s*=>\s*\{[\s\S]*?\?\s*value as AppPage\s*:\s*"ai"')
+        self.assertRegex(APP, r'PAGE_FROM_HASH\s*=\s*\(\)\s*:\s*AppPage\s*=>\s*\{[\s\S]*?\?\s*value as AppPage\s*:\s*"ai"')
 
     def test_hash_navigation_listener_is_removed_on_unmount(self):
         self.assertIn('window.addEventListener("hashchange", sync)', APP)
