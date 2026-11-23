@@ -4,6 +4,8 @@ import type { AnalysisResponse } from "@king-chess/shared";
 import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
 import { apiUrl } from "./lib/api.js";
 import PlayerSettings from "./components/PlayerSettings.js";
+import EvaluationBar from "./components/EvaluationBar.js";
+import { AI_RATING_OPTIONS } from "./lib/aiRatings.js";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const START_FEN = new Chess().fen();
@@ -404,7 +406,7 @@ export default function App() {
           </div>
           <span className="mode-option-label">BOT RATING</span>
           <div className="ai-depth-options">
-            {[1320, 1500, 1700, 1900, 2100, 2300, 2500].map(rating =>
+            {AI_RATING_OPTIONS.map(({ value: rating }) =>
               <button key={rating} className={aiRating === rating ? "ai-depth active" : "ai-depth"} onClick={() => setAiRating(rating)}>{rating}</button>
             )}
             <button className={aiRating === null ? "ai-depth active" : "ai-depth"} onClick={() => setAiRating(null)}>Maximum</button>
@@ -456,13 +458,7 @@ export default function App() {
 
           <div className="board-with-eval">
             {evaluationBarEnabled && (
-              <div className="evaluation-bar-column" role="img" aria-label={`Position evaluation ${evaluation.label} from White side`}>
-                <span className="evaluation-bar-score">{evaluation.label}</span>
-                <div className="evaluation-bar-track">
-                  <div className="evaluation-bar-white" style={{ height: `${evaluation.whitePercent}%` }} />
-                </div>
-                <span className="evaluation-bar-piece">♔</span>
-              </div>
+              <EvaluationBar label={evaluation.label} whitePercent={evaluation.whitePercent} />
             )}
             <div className="board-frame">
             <div className="chessboard" role="group" aria-label="Chess board">
