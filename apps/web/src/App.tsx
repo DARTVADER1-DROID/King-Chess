@@ -145,7 +145,7 @@ export default function App() {
     return preview;
   }, [fen, localPgn, multiplayer.room?.pgn, analysis, previewCandidate, previewPly]);
 
-  const evaluation = evaluationBarData(analysisEnabled ? analysis : null, game.turn());
+  const evaluation = evaluationBarData(analysis, game.turn());
   const boardRanks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
   const boardFiles = flipped ? [...FILES].reverse() : FILES;
   const history = game.history();
@@ -455,7 +455,7 @@ export default function App() {
           </div>
 
           <div className="board-with-eval">
-            {evaluationBarEnabled && analysisEnabled && (
+            {evaluationBarEnabled && (
               <div className="evaluation-bar-column" role="img" aria-label={`Position evaluation ${evaluation.label} from White side`}>
                 <span className="evaluation-bar-score">{evaluation.label}</span>
                 <div className="evaluation-bar-track">
