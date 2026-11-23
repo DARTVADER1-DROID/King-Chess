@@ -66,7 +66,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
     def heading(self):
         return self.page.locator(".page-heading h1").inner_text()
 
-    def test_all_five_pages_render_directly_from_deep_link(self):
+    def test_all_six_pages_render_directly_from_deep_link(self):
         expected = {
             "ai": "Play vs Stockfish.",
             "local": "Local match.",
@@ -146,6 +146,23 @@ class WorkspaceFunctionalTests(unittest.TestCase):
             self.assertEqual(self.page.get_by_role("button", name=rating, exact=True).count(), 1)
         self.page.get_by_role("button", name="1900", exact=True).click()
         self.assertEqual(self.page.evaluate("localStorage.getItem('king-chess.ai-rating')"), "1900")
+
+
+    def test_selected_bot_rating_is_sent_to_analysis_endpoint(self):
+        payloads = []
+        def capture_analysis(route):
+            payloads.append(route.request.post_data_json)
+            route.fulfill(status=503, content_type="application/json", body='{"error":"Expected test engine failure"}')
+        self.page.route("**/api/analysis", capture_analysis)
+        self.page.goto(f"{BASE_URL}/#ai", wait_until="networkidle")
+        self.page.get_by_role("button", name="1900", exact=True).click()
+        self.page.get_by_role("button", name="e2 white pawn").click()
+        self.page.get_by_role("button", name="e4").click()
+        self.page.wait_for_function("window.localStorage.getItem('king-chess.ai-rating') === '1900'")
+        self.page.wait_for_timeout(500)
+        self.assertTrue(payloads, "AI request should be sent after the human move.")
+        self.assertEqual(payloads[-1]["elo"], 1900)
+        self.assertEqual(payloads[-1]["depth"], 22)
 
     def test_local_move_survives_navigation_to_history_and_back(self):
         self.page.goto(f"{BASE_URL}/#local", wait_until="networkidle")
