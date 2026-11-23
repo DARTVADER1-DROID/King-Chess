@@ -125,7 +125,7 @@ export class UciStockfishEngine implements ChessEngine {
     return response;
   }
 
-  async analyze(fen: string, depth: number, multiPv = 3): Promise<EngineAnalysis> {
+  async analyze(fen: string, depth: number, multiPv = 3, elo?: number): Promise<EngineAnalysis> {
     if (this.busy) throw new Error("The analysis engine is busy. Retry shortly.");
     this.busy = true;
     try {
@@ -135,6 +135,8 @@ export class UciStockfishEngine implements ChessEngine {
       this.lineBuffer = [];
       const candidateCount = Math.max(1, Math.min(5, Math.floor(multiPv)));
       this.child.stdin.write("setoption name MultiPV value " + candidateCount + "\n");
+      this.child.stdin.write("setoption name UCI_LimitStrength value " + (elo === undefined ? "false" : "true") + "\n");
+      if (elo !== undefined) this.child.stdin.write("setoption name UCI_Elo value " + elo + "\n");
       await this.commandAndWait("isready", line => line === "readyok");
       this.child.stdin.write("position fen " + fen + "\n");
       const response = this.waitForLine(line => line.startsWith("bestmove "));
