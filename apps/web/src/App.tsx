@@ -197,7 +197,7 @@ export default function App() {
   }, [mode, room, fen, aiDepth, aiRetry, aiColor, localResult]);
 
   function changeMode(nextMode: "ai" | "online" | "local") {
-    if (nextMode === mode) return;
+    if (nextMode === mode) { navigate(nextMode); return; }
     if (room) multiplayer.leaveGame();
     setMode(nextMode);
     setFen(START_FEN);
