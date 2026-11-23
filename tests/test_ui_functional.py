@@ -73,6 +73,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
             "online": "Play online.",
             "analysis": "Position analysis.",
             "history": "Move history.",
+            "settings": "Player settings.",
         }
         for route, heading in expected.items():
             with self.subTest(route=route):
@@ -86,13 +87,13 @@ class WorkspaceFunctionalTests(unittest.TestCase):
             self.assertTrue(self.page.locator(".mode-options").is_visible())
 
     def test_ai_controls_never_leak_into_other_workspaces(self):
-        for route in ("local", "online", "analysis", "history"):
+        for route in ("local", "online", "analysis", "history", "settings"):
             self.page.goto(f"{BASE_URL}/#{route}", wait_until="networkidle")
             self.assertEqual(self.page.locator(".mode-options").count(), 0, route)
             self.assertEqual(self.page.get_by_text("AI STRENGTH").count(), 0, route)
 
     def test_online_lobby_is_exclusive_to_online_workspace(self):
-        for route in ("ai", "local", "analysis", "history"):
+        for route in ("ai", "local", "analysis", "history", "settings"):
             self.page.goto(f"{BASE_URL}/#{route}", wait_until="networkidle")
             self.assertEqual(self.page.locator(".multiplayer-panel").count(), 0, route)
         self.page.goto(f"{BASE_URL}/#online", wait_until="networkidle")
@@ -100,7 +101,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.assertTrue(self.page.get_by_role("heading", name="Multiplayer").is_visible())
 
     def test_analysis_panel_is_exclusive_and_has_all_depth_edges(self):
-        for route in ("ai", "local", "online", "history"):
+        for route in ("ai", "local", "online", "history", "settings"):
             self.page.goto(f"{BASE_URL}/#{route}", wait_until="networkidle")
             self.assertEqual(self.page.locator(".analysis-card").count(), 0, route)
         self.page.goto(f"{BASE_URL}/#analysis", wait_until="networkidle")
@@ -114,6 +115,37 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.assertEqual(self.page.locator(".game-card").count(), 0)
         self.assertEqual(self.page.locator(".history-card").count(), 1)
         self.assertTrue(self.page.get_by_text("Your moves will appear here.").is_visible())
+
+
+    def test_settings_save_player_name_and_bot_rating_across_reload(self):
+        self.page.goto(f"{BASE_URL}/#settings", wait_until="networkidle")
+        self.page.locator(".player-settings input").fill("Test Player")
+        rating = self.page.locator(".player-settings select").nth(1)
+        rating.select_option("1900")
+        self.page.reload(wait_until="networkidle")
+        self.assertEqual(self.page.locator(".player-settings input").input_value(), "Test Player")
+        self.assertEqual(self.page.locator(".player-settings select").nth(1).input_value(), "1900")
+        self.assertEqual(self.page.evaluate("localStorage.getItem('king-chess.ai-rating')"), "1900")
+        self.assertEqual(self.page.evaluate("localStorage.getItem('king-chess.player-name')"), "Test Player")
+
+    def test_evaluation_bar_preference_is_independent_and_persistent(self):
+        self.page.goto(f"{BASE_URL}/#settings", wait_until="networkidle")
+        switches = self.page.get_by_role("switch")
+        self.assertEqual(switches.count(), 2)
+        evaluation_switch = switches.nth(1)
+        evaluation_switch.click()
+        self.assertEqual(evaluation_switch.get_attribute("aria-checked"), "false")
+        self.page.reload(wait_until="networkidle")
+        self.assertEqual(self.page.get_by_role("switch").nth(1).get_attribute("aria-checked"), "false")
+        self.page.goto(f"{BASE_URL}/#local", wait_until="networkidle")
+        self.assertEqual(self.page.locator(".evaluation-bar-column").count(), 0)
+
+    def test_bot_rating_buttons_offer_presets_and_maximum(self):
+        self.page.goto(f"{BASE_URL}/#ai", wait_until="networkidle")
+        for rating in ("1320", "1500", "1700", "1900", "2100", "2300", "2500", "2800", "3100", "Maximum"):
+            self.assertEqual(self.page.get_by_role("button", name=rating, exact=True).count(), 1)
+        self.page.get_by_role("button", name="1900", exact=True).click()
+        self.assertEqual(self.page.evaluate("localStorage.getItem('king-chess.ai-rating')"), "1900")
 
     def test_local_move_survives_navigation_to_history_and_back(self):
         self.page.goto(f"{BASE_URL}/#local", wait_until="networkidle")
@@ -159,11 +191,11 @@ class WorkspaceFunctionalTests(unittest.TestCase):
 
     def test_repeated_route_switching_does_not_duplicate_navigation_or_board(self):
         for _ in range(5):
-            for route in ("ai", "local", "online", "analysis", "history"):
+            for route in ("ai", "local", "online", "analysis", "history", "settings"):
                 self.page.goto(f"{BASE_URL}/#{route}", wait_until="domcontentloaded")
                 self.assertEqual(self.page.locator(".app-nav").count(), 1)
                 self.assertEqual(self.page.locator(".page-heading").count(), 1)
-                if route == "history":
+                if route in ("history", "settings"):
                     self.assertEqual(self.page.locator('[aria-label="Chess board"]').count(), 0)
                 else:
                     self.assertEqual(self.page.locator('[aria-label="Chess board"]').count(), 1)
