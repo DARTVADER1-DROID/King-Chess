@@ -33,6 +33,14 @@ export function parseUciInfo(line: string): UciInfo | null {
   return Object.keys(result).length ? result : null;
 }
 
+export function buildUciStrengthCommands(elo?: number): string[] {
+  if (elo === undefined) return ["setoption name UCI_LimitStrength value false"];
+  return [
+    "setoption name UCI_LimitStrength value true",
+    "setoption name UCI_Elo value " + elo
+  ];
+}
+
 interface Waiter {
   predicate: (line: string) => boolean;
   resolve: (line: string) => void;
@@ -125,7 +133,7 @@ export class UciStockfishEngine implements ChessEngine {
     return response;
   }
 
-  async analyze(fen: string, depth: number, multiPv = 3): Promise<EngineAnalysis> {
+  async analyze(fen: string, depth: number, multiPv = 3, elo?: number): Promise<EngineAnalysis> {
     if (this.busy) throw new Error("The analysis engine is busy. Retry shortly.");
     this.busy = true;
     try {
@@ -135,6 +143,7 @@ export class UciStockfishEngine implements ChessEngine {
       this.lineBuffer = [];
       const candidateCount = Math.max(1, Math.min(5, Math.floor(multiPv)));
       this.child.stdin.write("setoption name MultiPV value " + candidateCount + "\n");
+      for (const command of buildUciStrengthCommands(elo)) this.child.stdin.write(command + "\n");
       await this.commandAndWait("isready", line => line === "readyok");
       this.child.stdin.write("position fen " + fen + "\n");
       const response = this.waitForLine(line => line.startsWith("bestmove "));

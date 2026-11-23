@@ -13,6 +13,6 @@ export interface EngineAnalysis {
 }
 
 export interface ChessEngine {
-  analyze(fen: string, depth: number, multiPv?: number): Promise<EngineAnalysis>;
+  analyze(fen: string, depth: number, multiPv?: number, elo?: number): Promise<EngineAnalysis>;
   close(): Promise<void>;
 }

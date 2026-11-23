@@ -3,6 +3,9 @@ import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
 import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
 import { apiUrl } from "./lib/api.js";
+import PlayerSettings from "./components/PlayerSettings.js";
+import EvaluationBar from "./components/EvaluationBar.js";
+import { AI_RATING_OPTIONS } from "./lib/aiRatings.js";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const START_FEN = new Chess().fen();
@@ -53,18 +56,41 @@ function evaluationBarData(result: AnalysisResponse | null, sideToMove: "w" | "b
   };
 }
 
+type AppPage = "ai" | "local" | "online" | "analysis" | "history" | "settings";
+const PAGE_FROM_HASH = (): AppPage => {
+  const value = window.location.hash.replace(/^#/, "");
+  return (["ai", "local", "online", "analysis", "history", "settings"] as const).includes(value as AppPage) ? value as AppPage : "ai";
+};
+
 export default function App() {
+  const [page, setPage] = useState<AppPage>(PAGE_FROM_HASH);
+  const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "ai" ? "ai" : "local");
+  const navigate = (next: AppPage) => { window.location.hash = next; setPage(next); };
+  useEffect(() => {
+    const sync = () => {
+      const nextPage = PAGE_FROM_HASH();
+      setPage(nextPage);
+
+      // Deep links and browser history navigation must keep the active game
+      // mode aligned with the play workspace. Otherwise #local can render the
+      // local page while playSquare still applies AI-mode turn rules.
+      if (nextPage === "ai" || nextPage === "local" || nextPage === "online") {
+        setMode(nextPage);
+      }
+    };
+    window.addEventListener("hashchange", sync);
+    return () => window.removeEventListener("hashchange", sync);
+  }, []);
   const [fen, setFen] = useState(START_FEN);
   const [localPgn, setLocalPgn] = useState("");
   const [selected, setSelected] = useState<Square | null>(null);
   const [flipped, setFlipped] = useState(false);
   const [depth, setDepth] = useState(15);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
-  const [mode, setMode] = useState<"ai" | "online" | "local">("local");
-  const [analysisEnabled, setAnalysisEnabled] = useState(true);
-  const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(true);
-  const [aiDepth, setAiDepth] = useState(10);
-  const [aiColor, setAiColor] = useState<"w" | "b">("b");
+  const [analysisEnabled, setAnalysisEnabled] = useState(() => localStorage.getItem("king-chess.analysis-enabled") !== "false");
+  const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(() => localStorage.getItem("king-chess.eval-bar-enabled") !== "false");
+  const [aiRating, setAiRating] = useState<number | null>(() => { const saved = localStorage.getItem("king-chess.ai-rating"); return saved === "max" ? null : saved && Number.isInteger(Number(saved)) ? Number(saved) : 1500; });
+  const [aiColor, setAiColor] = useState<"w" | "b">(() => localStorage.getItem("king-chess.ai-color") === "w" ? "w" : "b");
   const [localResult, setLocalResult] = useState<"draw" | "white-resigned" | "black-resigned" | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
   const [aiError, setAiError] = useState("");
@@ -74,10 +100,16 @@ export default function App() {
   const [previewCandidate, setPreviewCandidate] = useState<number | null>(null);
   const [previewPly, setPreviewPly] = useState(0);
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
-  const [username, setUsername] = useState("Player");
+  const [username, setUsername] = useState(() => localStorage.getItem("king-chess.player-name") ?? "Player");
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
   const multiplayer = useMultiplayerGame();
+
+  useEffect(() => { localStorage.setItem("king-chess.player-name", username); }, [username]);
+  useEffect(() => { localStorage.setItem("king-chess.ai-rating", aiRating === null ? "max" : String(aiRating)); }, [aiRating]);
+  useEffect(() => { localStorage.setItem("king-chess.ai-color", aiColor); }, [aiColor]);
+  useEffect(() => { localStorage.setItem("king-chess.analysis-enabled", String(analysisEnabled)); }, [analysisEnabled]);
+  useEffect(() => { localStorage.setItem("king-chess.eval-bar-enabled", String(evaluationBarEnabled)); }, [evaluationBarEnabled]);
 
   useEffect(() => {
     let active = true;
@@ -125,7 +157,7 @@ export default function App() {
     return preview;
   }, [fen, localPgn, multiplayer.room?.pgn, analysis, previewCandidate, previewPly]);
 
-  const evaluation = evaluationBarData(analysisEnabled ? analysis : null, game.turn());
+  const evaluation = evaluationBarData(analysis, game.turn());
   const boardRanks = flipped ? [1, 2, 3, 4, 5, 6, 7, 8] : [8, 7, 6, 5, 4, 3, 2, 1];
   const boardFiles = flipped ? [...FILES].reverse() : FILES;
   const history = game.history();
@@ -156,7 +188,7 @@ export default function App() {
     : status;
 
   useEffect(() => {
-    if (mode !== "ai" || room || localResult || game.turn() !== aiColor || game.isGameOver()) {
+    if (page !== "ai" || mode !== "ai" || room || localResult || game.turn() !== aiColor || game.isGameOver()) {
       setAiThinking(false);
       return;
     }
@@ -168,7 +200,7 @@ export default function App() {
     fetch(apiUrl("/api/analysis"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fen, depth: aiDepth }),
+      body: JSON.stringify({ fen, depth: 22, ...(aiRating === null ? {} : { elo: aiRating }) }),
       signal: controller.signal
     })
       .then(async response => {
@@ -194,12 +226,13 @@ export default function App() {
       })
       .finally(() => { if (active) setAiThinking(false); });
     return () => { active = false; controller.abort(); };
-  }, [mode, room, fen, aiDepth, aiRetry, aiColor, localResult]);
+  }, [page, mode, room, fen, aiRating, aiRetry, aiColor, localResult]);
 
   function changeMode(nextMode: "ai" | "online" | "local") {
-    if (nextMode === mode) return;
+    if (nextMode === mode) { navigate(nextMode); return; }
     if (room) multiplayer.leaveGame();
     setMode(nextMode);
+    navigate(nextMode);
     setFen(START_FEN);
     setLocalPgn("");
     setLocalResult(null);
@@ -350,55 +383,52 @@ export default function App() {
   return (
     <main className="app-shell">
       <header className="topbar">
-        <a className="brand" href="#" aria-label="King Chess home">
+        <a className="brand" href="#ai" aria-label="King Chess home">
           <span className="brand-mark">♔</span>
           <span>KING<span className="brand-light">CHESS</span></span>
         </a>
+        <nav className="app-nav" aria-label="Main navigation">
+          <button className={page === "ai" ? "nav-link active" : "nav-link"} onClick={() => changeMode("ai")}>Play vs AI</button>
+          <button className={page === "local" ? "nav-link active" : "nav-link"} onClick={() => changeMode("local")}>Local</button>
+          <button className={page === "online" ? "nav-link active" : "nav-link"} onClick={() => changeMode("online")}>Online</button>
+          <button className={page === "analysis" ? "nav-link active" : "nav-link"} onClick={() => { setAnalysisEnabled(true); navigate("analysis"); }}>Analysis</button>
+          <button className={page === "history" ? "nav-link active" : "nav-link"} onClick={() => navigate("history")}>History</button>
+          <button className={page === "settings" ? "nav-link active" : "nav-link"} onClick={() => navigate("settings")}>Settings</button>
+        </nav>
         <div className={`api-pill ${apiStatus}`}><i />{apiStatus === "checking" ? "Connecting" : apiStatus === "online" ? "Server online" : "Server offline"}</div>
       </header>
 
       <section className="page-heading">
         <div>
-          <p className="eyebrow">THE BOARD IS YOURS</p>
-          <h1>Play. Think. <em>Improve.</em></h1>
-          <p className="subtitle">{mode === "ai" ? "Challenge Stockfish and sharpen your game." : mode === "online" ? "Create a room or join a friend anywhere in the world." : "Two players. One board. Take turns on the same device."}</p>
+          <p className="eyebrow">KING CHESS WORKSPACE</p>
+          <h1>{page === "analysis" ? <>Position <em>analysis.</em></> : page === "history" ? <>Move <em>history.</em></> : page === "settings" ? <>Player <em>settings.</em></> : page === "online" ? <>Play <em>online.</em></> : page === "local" ? <>Local <em>match.</em></> : <>Play vs <em>Stockfish.</em></>}</h1>
+          <p className="subtitle">{page === "analysis" ? "Explore engine evaluations, candidate moves and variations in a dedicated analysis workspace." : page === "history" ? "Review the moves from your current game without the distractions of play controls." : page === "settings" ? "Configure your player identity, bot strength and analysis preferences." : page === "online" ? "Create a room or join a friend using an invite code." : page === "local" ? "Two players. One board. Take turns on the same device." : "Challenge Stockfish and sharpen your game."}</p>
         </div>
-        <div className="heading-chip"><span>♟</span> {mode === "ai" ? "VS STOCKFISH" : mode === "online" ? "ONLINE MATCH" : "LOCAL MATCH"}</div>
+        <div className="heading-chip"><span>♟</span> {page.toUpperCase()}</div>
       </section>
 
-      <section className="mode-selector" aria-label="Choose game mode">
-        <button className={mode === "ai" ? "mode-card active" : "mode-card"} onClick={() => changeMode("ai")}>
-          <span className="mode-icon">♞</span><strong>Play vs AI</strong><small>Challenge Stockfish</small>
-        </button>
-        <button className={mode === "online" ? "mode-card active" : "mode-card"} onClick={() => changeMode("online")}>
-          <span className="mode-icon">⌘</span><strong>Online</strong><small>Play with a friend remotely</small>
-        </button>
-        <button className={mode === "local" ? "mode-card active" : "mode-card"} onClick={() => changeMode("local")}>
-          <span className="mode-icon">♟</span><strong>Local</strong><small>Two players, same device</small>
-        </button>
-      </section>
-
-      <section className="mode-options">
+      {page === "ai" && <section className="mode-options">
         {mode === "ai" && <div className="ai-difficulty">
           <span className="mode-option-label">PLAY AS</span>
           <div className="ai-depth-options">
             <button className={aiColor === "b" ? "ai-depth active" : "ai-depth"} onClick={() => chooseAiSide("b")}>White</button>
             <button className={aiColor === "w" ? "ai-depth active" : "ai-depth"} onClick={() => chooseAiSide("w")}>Black</button>
           </div>
-          <span className="mode-option-label">AI STRENGTH</span>
+          <span className="mode-option-label">BOT RATING</span>
           <div className="ai-depth-options">
-            {[{value:5,label:"Easy"},{value:10,label:"Club"},{value:15,label:"Strong"},{value:20,label:"Expert"},{value:22,label:"Maximum"}].map(item =>
-              <button key={item.value} className={aiDepth === item.value ? "ai-depth active" : "ai-depth"} onClick={() => setAiDepth(item.value)}>{item.label}</button>
+            {AI_RATING_OPTIONS.map(({ value: rating }) =>
+              <button key={rating} className={aiRating === rating ? "ai-depth active" : "ai-depth"} onClick={() => setAiRating(rating)}>{rating}</button>
             )}
+            <button className={aiRating === null ? "ai-depth active" : "ai-depth"} onClick={() => setAiRating(null)}>Maximum</button>
           </div>
         </div>}
         <div className="analysis-setting">
           <div><strong>Position analysis</strong><small>Engine evaluations, suggested arrows and variation previews</small></div>
           <button type="button" role="switch" aria-checked={analysisEnabled} className={analysisEnabled ? "toggle-switch on" : "toggle-switch"} onClick={toggleAnalysis}><span /></button>
         </div>
-      </section>
+      </section>}
 
-      {mode === "online" && <section className="multiplayer-panel">
+      {page === "online" && <section className="multiplayer-panel">
         <div className="multiplayer-heading">
           <div><p className="eyebrow">PLAY WITH A FRIEND</p><h2>Multiplayer</h2></div>
           <span className={`connection-label ${multiplayer.connected ? "connected" : ""}`}><i />{multiplayer.connected ? "Realtime connected" : "Connecting to realtime server"}</span>
@@ -429,22 +459,16 @@ export default function App() {
         <p className="multiplayer-note">Create a room and share its invite code. The server validates every move and broadcasts the official position to both players.</p>
       </section>}
 
-      <section className="game-layout">
-        <div className="board-column">
+      {page !== "settings" && <section className={page === "history" ? "game-layout history-layout" : "game-layout"}>
+        {page !== "history" && <div className="board-column">
           <div className="board-topline">
             <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{mode === "ai" && aiColor === "w" ? "Stockfish" : mode === "ai" ? "You" : room?.players.black?.username ?? "Black"}</strong><small>{mode === "ai" ? (aiColor === "w" ? "AI · White pieces" : "You · Black pieces") : room?.players.black ? "Black pieces" : mode === "online" ? "Waiting for player" : "Local player"}</small></div></div>
             <span className="turn-indicator">{game.turn() === "b" ? "TO MOVE" : "WAITING"}</span>
           </div>
 
           <div className="board-with-eval">
-            {evaluationBarEnabled && analysisEnabled && (
-              <div className="evaluation-bar-column" role="img" aria-label={`Position evaluation ${evaluation.label} from White side`}>
-                <span className="evaluation-bar-score">{evaluation.label}</span>
-                <div className="evaluation-bar-track">
-                  <div className="evaluation-bar-white" style={{ height: `${evaluation.whitePercent}%` }} />
-                </div>
-                <span className="evaluation-bar-piece">♔</span>
-              </div>
+            {evaluationBarEnabled && (
+              <EvaluationBar label={evaluation.label} whitePercent={evaluation.whitePercent} />
             )}
             <div className="board-frame">
             <div className="chessboard" role="group" aria-label="Chess board">
@@ -528,10 +552,10 @@ export default function App() {
             <button className="quiet-button" onClick={() => setFlipped(!flipped)}>⇅ <span>Flip board</span></button>
             <button className="quiet-button" onClick={resetGame}>{room ? "↩" : "↻"} <span>{room ? "Leave game" : "New game"}</span></button>
           </div>
-        </div>
+        </div>}
 
         <aside className="side-column">
-          <section className="side-card game-card">
+          {page !== "history" && <section className="side-card game-card">
             <div className="card-title-row"><div><p className="eyebrow">CURRENT GAME</p><h2>Game status</h2></div><span className="live-dot" /></div>
             <p className="game-status">{gameStatus}</p>
             {room?.drawOfferBy && !room.result && <p className="draw-notice">{room.drawOfferBy === playerColor ? "Draw offer sent · waiting for opponent" : "Your opponent offered a draw."}</p>}
@@ -540,9 +564,9 @@ export default function App() {
             <div className="stat-row"><span>Moves played</span><strong>{Math.ceil(history.length / 2)}</strong></div>
             <div className="stat-row"><span>Full move</span><strong>{game.moveNumber()}</strong></div>
             {room && <div className="stat-row"><span>Your side</span><strong>{playerColor === "w" ? "White" : playerColor === "b" ? "Black" : "—"}</strong></div>}
-          </section>
+          </section>}
 
-          <section className="side-card moves-card">
+          {page === "history" && <section className="side-card moves-card history-card">
             <div className="card-title-row"><div><p className="eyebrow">MOVE TRACKER</p><h2>Move history</h2></div><span className="count-tag">{history.length}</span></div>
             <div className="move-list">
               {history.length === 0 ? <p className="empty-state">Your moves will appear here.</p> :
@@ -554,9 +578,9 @@ export default function App() {
                   </div>
                 ))}
             </div>
-          </section>
+          </section>}
 
-          {analysisEnabled && <section className="side-card analysis-card">
+          {page === "analysis" && <section className="side-card analysis-card">
             <div className="card-title-row"><div><p className="eyebrow">POWERED BY STOCKFISH</p><h2>Position analysis</h2></div><span className="engine-icon">⌁</span></div>
             <label className="field-label" htmlFor="depth">Analysis depth</label>
             <div className="depth-options" id="depth">
@@ -590,8 +614,15 @@ export default function App() {
             <p className="engine-note">Deeper searches take longer. Engine availability depends on the server Stockfish installation.</p>
           </section>}
         </aside>
-      </section>
-      <footer className="app-footer">KING CHESS <span>·</span> Built for the love of the game</footer>
+      </section>}
+      {page === "settings" && <PlayerSettings
+        playerName={username} onPlayerNameChange={setUsername}
+        aiColor={aiColor} onAiColorChange={chooseAiSide}
+        aiRating={aiRating} onAiRatingChange={setAiRating}
+        analysisEnabled={analysisEnabled} onAnalysisEnabledChange={setAnalysisEnabled}
+        evaluationBarEnabled={evaluationBarEnabled} onEvaluationBarEnabledChange={setEvaluationBarEnabled}
+      />}
+      <footer className="app-footer">KING CHESS <span>·</span> Independent play, analysis and review workspaces</footer>
     </main>
   );
 }

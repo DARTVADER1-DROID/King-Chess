@@ -4,11 +4,12 @@ King Chess is a browser-based chess application with three play modes, Stockfish
 
 ## Features
 
-- **AI game:** Play Stockfish as White or Black. The current presets select search depth (Easy 5, Club 10, Strong 15, Expert 20, Maximum 22); they do not yet represent calibrated Elo ratings.
+- **AI game:** Play Stockfish as White or Black. Select a target engine rating using Stockfish UCI strength limiting (1320–3100 Elo presets) or choose unrestricted maximum strength. The selected rating is a Stockfish target, not a promise of tournament-calibrated playing performance.
 - **Online multiplayer:** Create an invite room and share its code. The first player is White and the second is Black. The server validates every move and broadcasts authoritative game state.
 - **Local multiplayer:** Two players share one browser/device.
 - **Analysis:** Optional in every mode. Request a Stockfish analysis with up to three candidate lines, evaluations, principal variation, nodes and engine time. Candidate lines can be previewed without changing the actual game.
-- **Evaluation bar:** Toggle the board-side evaluation display. It reflects the most recently completed manual analysis; it is not continuously refreshed after every move.
+- **Evaluation bar:** Toggle the board-side evaluation display. It visualizes the most recently completed position analysis and is not a continuously updating live engine stream.
+- **Player settings:** Configure a display name, default side, default Stockfish rating, analysis arrows and evaluation-bar visibility. Preferences persist in the browser using local storage; no account or cloud profile is required.
 - **Game actions:** Undo in supported non-online games, draw actions, resignation, board flip, move history and game status.
 
 ## Technology

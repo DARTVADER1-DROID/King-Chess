@@ -43,7 +43,7 @@ export interface EngineScore {
   value: number;
   perspective: "side-to-move";
 }
-export interface AnalysisRequest { fen: string; depth?: number; }
+export interface AnalysisRequest { fen: string; depth?: number; elo?: number; }
 export interface AnalysisLine {
   rank: number;
   move: string | null;
