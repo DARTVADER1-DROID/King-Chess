@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { parseUciInfo } from "../src/infrastructure/engine/UciStockfishEngine.js";
+import { buildUciStrengthCommands, parseUciInfo } from "../src/infrastructure/engine/UciStockfishEngine.js";
 
 test("parses centipawn search information and principal variation", () => {
   assert.deepEqual(parseUciInfo("info depth 18 seldepth 25 score cp 34 nodes 123456 time 987 pv e2e4 e7e5 g1f3"), {
@@ -24,4 +24,17 @@ test("parses MultiPV rank and its independent candidate line", () => {
     score: { kind: "centipawns", value: -12, perspective: "side-to-move" },
     principalVariation: ["d2d4", "d7d5"]
   });
+});
+
+test("builds Stockfish Elo-limited UCI commands for a selected rating", () => {
+  assert.deepEqual(buildUciStrengthCommands(1900), [
+    "setoption name UCI_LimitStrength value true",
+    "setoption name UCI_Elo value 1900"
+  ]);
+});
+
+test("disables Elo limiting for unrestricted maximum strength", () => {
+  assert.deepEqual(buildUciStrengthCommands(), [
+    "setoption name UCI_LimitStrength value false"
+  ]);
 });
