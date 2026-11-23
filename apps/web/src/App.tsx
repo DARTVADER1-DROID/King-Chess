@@ -64,6 +64,7 @@ const PAGE_FROM_HASH = (): AppPage => {
 
 export default function App() {
   const [page, setPage] = useState<AppPage>(PAGE_FROM_HASH);
+  const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "ai" ? "ai" : "local");
   const navigate = (next: AppPage) => { window.location.hash = next; setPage(next); };
   useEffect(() => {
     const sync = () => {
@@ -86,7 +87,6 @@ export default function App() {
   const [flipped, setFlipped] = useState(false);
   const [depth, setDepth] = useState(15);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
-  const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "ai" ? "ai" : "local");
   const [analysisEnabled, setAnalysisEnabled] = useState(() => localStorage.getItem("king-chess.analysis-enabled") !== "false");
   const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(() => localStorage.getItem("king-chess.eval-bar-enabled") !== "false");
   const [aiRating, setAiRating] = useState<number | null>(() => { const saved = localStorage.getItem("king-chess.ai-rating"); return saved === "max" ? null : saved && Number.isInteger(Number(saved)) ? Number(saved) : 1500; });
