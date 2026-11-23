@@ -75,10 +75,10 @@ export default function App() {
   const [depth, setDepth] = useState(15);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
   const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "ai" ? "ai" : "local");
-  const [analysisEnabled, setAnalysisEnabled] = useState(true);
-  const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(true);
-  const [aiRating, setAiRating] = useState<number | null>(() => { const saved = localStorage.getItem("king-chess.ai-rating"); return saved === "max" ? null : saved ? Number(saved) : 1500; });
-  const [aiColor, setAiColor] = useState<"w" | "b">("b");
+  const [analysisEnabled, setAnalysisEnabled] = useState(() => localStorage.getItem("king-chess.analysis-enabled") !== "false");
+  const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(() => localStorage.getItem("king-chess.eval-bar-enabled") !== "false");
+  const [aiRating, setAiRating] = useState<number | null>(() => { const saved = localStorage.getItem("king-chess.ai-rating"); return saved === "max" ? null : saved && Number.isInteger(Number(saved)) ? Number(saved) : 1500; });
+  const [aiColor, setAiColor] = useState<"w" | "b">(() => localStorage.getItem("king-chess.ai-color") === "w" ? "w" : "b");
   const [localResult, setLocalResult] = useState<"draw" | "white-resigned" | "black-resigned" | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
   const [aiError, setAiError] = useState("");
