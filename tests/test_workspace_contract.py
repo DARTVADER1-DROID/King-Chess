@@ -14,7 +14,7 @@ CSS = (ROOT / "apps/web/src/style.css").read_text(encoding="utf-8")
 
 class WorkspaceContractTests(unittest.TestCase):
     def test_all_supported_workspaces_are_explicitly_whitelisted(self):
-        match = re.search(r'\[("ai"\s*,\s*"local"\s*,\s*"online"\s*,\s*"analysis"\s*,\s*"history")\s*\]', APP)
+        match = re.search(r'\[("ai"\s*,\s*"local"\s*,\s*"online"\s*,\s*"analysis"\s*,\s*"history"\s*,\s*"settings")\s*\]', APP)
         self.assertIsNotNone(match, "Route whitelist must contain exactly the six supported pages.")
 
     def test_unknown_hash_falls_back_to_ai(self):
