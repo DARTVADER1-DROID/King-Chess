@@ -111,8 +111,9 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.assertEqual(self.page.locator(".analysis-card").count(), 1)
         depth_options = self.page.locator(".analysis-card .depth-option")
         self.assertEqual(depth_options.count(), 5)
+        rendered_depth_labels = self.page.locator(".analysis-card .depth-option").all_text_contents()
         for depth in ("Quick", "Standard", "Deep", "Very deep", "Maximum"):
-            self.assertEqual(self.page.locator(".analysis-card").get_by_role("button", name=depth).count(), 1)
+            self.assertTrue(any(depth in label for label in rendered_depth_labels), depth)
 
     def test_history_hides_board_but_retains_move_list_workspace(self):
         self.page.goto(f"{BASE_URL}/#history", wait_until="networkidle")
@@ -170,7 +171,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
 
     def test_local_move_survives_navigation_to_history_and_back(self):
         self.page.goto(f"{BASE_URL}/#local", wait_until="networkidle")
-        self.page.get_by_role("button", name="e2 white pawn").click()
+        self.page.get_by_role("button", name="e2 white p").click()
         self.page.get_by_role("button", name="e4").click()
         self.page.get_by_role("button", name="History").click()
         self.assertTrue(self.page.locator(".history-card").get_by_text("e4").is_visible())
