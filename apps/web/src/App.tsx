@@ -3,6 +3,7 @@ import { Chess, type Square } from "chess.js";
 import type { AnalysisResponse } from "@king-chess/shared";
 import { useMultiplayerGame } from "./hooks/useMultiplayerGame.js";
 import { apiUrl } from "./lib/api.js";
+import PlayerSettings from "./components/PlayerSettings.js";
 
 const FILES = ["a", "b", "c", "d", "e", "f", "g", "h"];
 const START_FEN = new Chess().fen();
@@ -53,10 +54,10 @@ function evaluationBarData(result: AnalysisResponse | null, sideToMove: "w" | "b
   };
 }
 
-type AppPage = "ai" | "local" | "online" | "analysis" | "history";
+type AppPage = "ai" | "local" | "online" | "analysis" | "history" | "settings";
 const PAGE_FROM_HASH = (): AppPage => {
   const value = window.location.hash.replace(/^#/, "");
-  return (["ai", "local", "online", "analysis", "history"] as const).includes(value as AppPage) ? value as AppPage : "ai";
+  return (["ai", "local", "online", "analysis", "history", "settings"] as const).includes(value as AppPage) ? value as AppPage : "ai";
 };
 
 export default function App() {
@@ -76,7 +77,7 @@ export default function App() {
   const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "ai" ? "ai" : "local");
   const [analysisEnabled, setAnalysisEnabled] = useState(true);
   const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(true);
-  const [aiDepth, setAiDepth] = useState(10);
+  const [aiRating, setAiRating] = useState<number | null>(() => { const saved = localStorage.getItem("king-chess.ai-rating"); return saved === "max" ? null : saved ? Number(saved) : 1500; });
   const [aiColor, setAiColor] = useState<"w" | "b">("b");
   const [localResult, setLocalResult] = useState<"draw" | "white-resigned" | "black-resigned" | null>(null);
   const [aiThinking, setAiThinking] = useState(false);
@@ -87,10 +88,16 @@ export default function App() {
   const [previewCandidate, setPreviewCandidate] = useState<number | null>(null);
   const [previewPly, setPreviewPly] = useState(0);
   const [apiStatus, setApiStatus] = useState<"checking" | "online" | "offline">("checking");
-  const [username, setUsername] = useState("Player");
+  const [username, setUsername] = useState(() => localStorage.getItem("king-chess.player-name") ?? "Player");
   const [joinCode, setJoinCode] = useState("");
   const [copied, setCopied] = useState(false);
   const multiplayer = useMultiplayerGame();
+
+  useEffect(() => { localStorage.setItem("king-chess.player-name", username); }, [username]);
+  useEffect(() => { localStorage.setItem("king-chess.ai-rating", aiRating === null ? "max" : String(aiRating)); }, [aiRating]);
+  useEffect(() => { localStorage.setItem("king-chess.ai-color", aiColor); }, [aiColor]);
+  useEffect(() => { localStorage.setItem("king-chess.analysis-enabled", String(analysisEnabled)); }, [analysisEnabled]);
+  useEffect(() => { localStorage.setItem("king-chess.eval-bar-enabled", String(evaluationBarEnabled)); }, [evaluationBarEnabled]);
 
   useEffect(() => {
     let active = true;
@@ -181,7 +188,7 @@ export default function App() {
     fetch(apiUrl("/api/analysis"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ fen, depth: aiDepth }),
+      body: JSON.stringify({ fen, depth: 22, ...(aiRating === null ? {} : { elo: aiRating }) }),
       signal: controller.signal
     })
       .then(async response => {
@@ -207,7 +214,7 @@ export default function App() {
       })
       .finally(() => { if (active) setAiThinking(false); });
     return () => { active = false; controller.abort(); };
-  }, [page, mode, room, fen, aiDepth, aiRetry, aiColor, localResult]);
+  }, [page, mode, room, fen, aiRating, aiRetry, aiColor, localResult]);
 
   function changeMode(nextMode: "ai" | "online" | "local") {
     if (nextMode === mode) { navigate(nextMode); return; }
@@ -374,6 +381,7 @@ export default function App() {
           <button className={page === "online" ? "nav-link active" : "nav-link"} onClick={() => changeMode("online")}>Online</button>
           <button className={page === "analysis" ? "nav-link active" : "nav-link"} onClick={() => { setAnalysisEnabled(true); navigate("analysis"); }}>Analysis</button>
           <button className={page === "history" ? "nav-link active" : "nav-link"} onClick={() => navigate("history")}>History</button>
+          <button className={page === "settings" ? "nav-link active" : "nav-link"} onClick={() => navigate("settings")}>Settings</button>
         </nav>
         <div className={`api-pill ${apiStatus}`}><i />{apiStatus === "checking" ? "Connecting" : apiStatus === "online" ? "Server online" : "Server offline"}</div>
       </header>
@@ -381,8 +389,8 @@ export default function App() {
       <section className="page-heading">
         <div>
           <p className="eyebrow">KING CHESS WORKSPACE</p>
-          <h1>{page === "analysis" ? <>Position <em>analysis.</em></> : page === "history" ? <>Move <em>history.</em></> : page === "online" ? <>Play <em>online.</em></> : page === "local" ? <>Local <em>match.</em></> : <>Play vs <em>Stockfish.</em></>}</h1>
-          <p className="subtitle">{page === "analysis" ? "Explore engine evaluations, candidate moves and variations in a dedicated analysis workspace." : page === "history" ? "Review the moves from your current game without the distractions of play controls." : page === "online" ? "Create a room or join a friend using an invite code." : page === "local" ? "Two players. One board. Take turns on the same device." : "Challenge Stockfish and sharpen your game."}</p>
+          <h1>{page === "analysis" ? <>Position <em>analysis.</em></> : page === "history" ? <>Move <em>history.</em></> : page === "settings" ? <>Player <em>settings.</em></> : page === "online" ? <>Play <em>online.</em></> : page === "local" ? <>Local <em>match.</em></> : <>Play vs <em>Stockfish.</em></>}</h1>
+          <p className="subtitle">{page === "analysis" ? "Explore engine evaluations, candidate moves and variations in a dedicated analysis workspace." : page === "history" ? "Review the moves from your current game without the distractions of play controls." : page === "settings" ? "Configure your player identity, bot strength and analysis preferences." : page === "online" ? "Create a room or join a friend using an invite code." : page === "local" ? "Two players. One board. Take turns on the same device." : "Challenge Stockfish and sharpen your game."}</p>
         </div>
         <div className="heading-chip"><span>♟</span> {page.toUpperCase()}</div>
       </section>
@@ -394,11 +402,12 @@ export default function App() {
             <button className={aiColor === "b" ? "ai-depth active" : "ai-depth"} onClick={() => chooseAiSide("b")}>White</button>
             <button className={aiColor === "w" ? "ai-depth active" : "ai-depth"} onClick={() => chooseAiSide("w")}>Black</button>
           </div>
-          <span className="mode-option-label">AI STRENGTH</span>
+          <span className="mode-option-label">BOT RATING</span>
           <div className="ai-depth-options">
-            {[{value:5,label:"Easy"},{value:10,label:"Club"},{value:15,label:"Strong"},{value:20,label:"Expert"},{value:22,label:"Maximum"}].map(item =>
-              <button key={item.value} className={aiDepth === item.value ? "ai-depth active" : "ai-depth"} onClick={() => setAiDepth(item.value)}>{item.label}</button>
+            {[1320, 1500, 1700, 1900, 2100, 2300, 2500].map(rating =>
+              <button key={rating} className={aiRating === rating ? "ai-depth active" : "ai-depth"} onClick={() => setAiRating(rating)}>{rating}</button>
             )}
+            <button className={aiRating === null ? "ai-depth active" : "ai-depth"} onClick={() => setAiRating(null)}>Maximum</button>
           </div>
         </div>}
         <div className="analysis-setting">
@@ -438,7 +447,7 @@ export default function App() {
         <p className="multiplayer-note">Create a room and share its invite code. The server validates every move and broadcasts the official position to both players.</p>
       </section>}
 
-      <section className={page === "history" ? "game-layout history-layout" : "game-layout"}>
+      {page !== "settings" && <section className={page === "history" ? "game-layout history-layout" : "game-layout"}>
         {page !== "history" && <div className="board-column">
           <div className="board-topline">
             <div className="player-label"><span className="avatar black-avatar">♚</span><div><strong>{mode === "ai" && aiColor === "w" ? "Stockfish" : mode === "ai" ? "You" : room?.players.black?.username ?? "Black"}</strong><small>{mode === "ai" ? (aiColor === "w" ? "AI · White pieces" : "You · Black pieces") : room?.players.black ? "Black pieces" : mode === "online" ? "Waiting for player" : "Local player"}</small></div></div>
@@ -600,6 +609,14 @@ export default function App() {
           </section>}
         </aside>
       </section>
+      </section>}
+      {page === "settings" && <PlayerSettings
+        playerName={username} onPlayerNameChange={setUsername}
+        aiColor={aiColor} onAiColorChange={chooseAiSide}
+        aiRating={aiRating} onAiRatingChange={setAiRating}
+        analysisEnabled={analysisEnabled} onAnalysisEnabledChange={setAnalysisEnabled}
+        evaluationBarEnabled={evaluationBarEnabled} onEvaluationBarEnabledChange={setEvaluationBarEnabled}
+      />}
       <footer className="app-footer">KING CHESS <span>·</span> Independent play, analysis and review workspaces</footer>
     </main>
   );
