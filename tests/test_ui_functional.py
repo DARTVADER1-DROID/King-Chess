@@ -178,7 +178,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.page.get_by_role("button", name="Local").click()
         self.assertEqual(self.page.locator(".square").count(), 64)
         self.page.get_by_role("button", name="History").click()
-        self.assertTrue(self.page.locator(".history-card").get_by_text("e4").is_visible())
+        self.page.locator(".history-card").get_by_text("e4").wait_for(state="visible", timeout=3000)
 
     def test_browser_back_and_forward_keep_route_and_active_heading_in_sync(self):
         self.page.goto(f"{BASE_URL}/#local", wait_until="networkidle")
