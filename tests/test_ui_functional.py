@@ -160,12 +160,11 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.page.goto(f"{BASE_URL}/#ai", wait_until="networkidle")
         self.page.get_by_role("button", name="1900", exact=True).click()
         self.page.get_by_role("button", name="e2 white pawn").click()
-        self.page.get_by_role("button", name="e4").click()
-        self.page.wait_for_function("window.localStorage.getItem('king-chess.ai-rating') === '1900'")
-        self.page.wait_for_timeout(500)
+        with self.page.expect_request("**/api/analysis", timeout=5000) as request_info:
+            self.page.get_by_role("button", name="e4").click()
         self.assertTrue(payloads, "AI request should be sent after the human move.")
-        self.assertEqual(payloads[-1]["elo"], 1900)
-        self.assertEqual(payloads[-1]["depth"], 22)
+        self.assertEqual(request_info.value.post_data_json["elo"], 1900)
+        self.assertEqual(request_info.value.post_data_json["depth"], 22)
 
     def test_local_move_survives_navigation_to_history_and_back(self):
         self.page.goto(f"{BASE_URL}/#local", wait_until="networkidle")
