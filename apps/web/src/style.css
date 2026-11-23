@@ -242,3 +242,24 @@ h1 em { color: #6e8d79; font-style: normal; font-weight: 520; }
   .evaluation-bar-column { flex-basis: 23px; }
   .evaluation-bar-track { width: 14px; }
 }
+
+
+/* Isolated feature workspaces and shared application navigation. */
+.topbar { align-items: center; gap: 20px; }
+.app-nav { display: flex; align-items: center; justify-content: center; gap: 5px; min-width: 0; margin: 0 auto; }
+.nav-link { padding: 9px 12px; border: 1px solid transparent; border-radius: 8px; background: transparent; color: #73737a; font-size: 11px; font-weight: 650; white-space: nowrap; cursor: pointer; transition: color .15s, background .15s, border-color .15s; }
+.nav-link:hover { color: #263b2d; background: #f5f7f5; }
+.nav-link.active { border-color: #dce7de; background: #edf4ef; color: #285c3a; }
+.history-layout { grid-template-columns: minmax(0, 1fr); }
+.history-layout .side-column { grid-template-columns: minmax(0, 1fr); }
+.history-card { width: 100%; }
+.history-card .move-list { max-height: min(58vh, 560px); }
+@media (max-width: 900px) {
+  .topbar { flex-wrap: wrap; gap: 10px; }
+  .app-nav { order: 3; width: 100%; justify-content: flex-start; overflow-x: auto; padding-bottom: 3px; }
+  .api-pill { margin-left: auto; }
+}
+@media (max-width: 700px) {
+  .app-nav { gap: 3px; }
+  .nav-link { padding: 8px 10px; font-size: 10px; }
+}
