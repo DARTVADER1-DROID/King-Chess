@@ -1,3 +1,5 @@
+import { AI_RATING_OPTIONS } from "../lib/aiRatings.js";
+
 interface PlayerSettingsProps {
   playerName: string;
   onPlayerNameChange: (value: string) => void;
@@ -11,17 +13,7 @@ interface PlayerSettingsProps {
   onEvaluationBarEnabledChange: (value: boolean) => void;
 }
 
-const RATING_OPTIONS = [
-  { value: 1320, label: "1320 · Beginner" },
-  { value: 1500, label: "1500 · Casual" },
-  { value: 1700, label: "1700 · Club" },
-  { value: 1900, label: "1900 · Advanced" },
-  { value: 2100, label: "2100 · Expert" },
-  { value: 2300, label: "2300 · Master" },
-  { value: 2500, label: "2500 · Grandmaster" },
-  { value: 2800, label: "2800 · Elite" },
-  { value: 3100, label: "3100 · Near maximum" }
-];
+
 
 export default function PlayerSettings(props: PlayerSettingsProps) {
   return (
@@ -46,7 +38,7 @@ export default function PlayerSettings(props: PlayerSettingsProps) {
         <label className="settings-field">
           <span>DEFAULT BOT RATING</span>
           <select value={props.aiRating ?? "max"} onChange={event => props.onAiRatingChange(event.target.value === "max" ? null : Number(event.target.value))}>
-            {RATING_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+            {AI_RATING_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
             <option value="max">Maximum · unrestricted</option>
           </select>
           <small>Stockfish UCI_Elo strength limiting; rated presets begin at 1320 Elo.</small>
