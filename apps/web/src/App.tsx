@@ -66,7 +66,17 @@ export default function App() {
   const [page, setPage] = useState<AppPage>(PAGE_FROM_HASH);
   const navigate = (next: AppPage) => { window.location.hash = next; setPage(next); };
   useEffect(() => {
-    const sync = () => setPage(PAGE_FROM_HASH());
+    const sync = () => {
+      const nextPage = PAGE_FROM_HASH();
+      setPage(nextPage);
+
+      // Deep links and browser history navigation must keep the active game
+      // mode aligned with the play workspace. Otherwise #local can render the
+      // local page while playSquare still applies AI-mode turn rules.
+      if (nextPage === "ai" || nextPage === "local" || nextPage === "online") {
+        setMode(nextPage);
+      }
+    };
     window.addEventListener("hashchange", sync);
     return () => window.removeEventListener("hashchange", sync);
   }, []);
