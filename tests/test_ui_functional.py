@@ -174,7 +174,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
         self.page.get_by_role("button", name="e2 white p").click()
         self.page.get_by_role("button", name="e4").click()
         self.page.get_by_role("button", name="History").click()
-        self.assertTrue(self.page.locator(".history-card").get_by_text("e4").is_visible())
+        self.page.locator(".history-card").get_by_text("e4").wait_for(state="visible", timeout=3000)
         self.page.get_by_role("button", name="Local").click()
         self.assertEqual(self.page.locator(".square").count(), 64)
         self.page.get_by_role("button", name="History").click()
