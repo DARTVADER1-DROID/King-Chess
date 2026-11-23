@@ -39,7 +39,9 @@ export class AnalysisService {
     if (chess.isGameOver()) throw new AnalysisInputError("This position is already terminal.");
 
     try {
-      const result = await this.engine.analyze(fen, depth, CANDIDATE_LINES, elo);
+      const result = elo === undefined
+        ? await this.engine.analyze(fen, depth, CANDIDATE_LINES)
+        : await this.engine.analyze(fen, depth, CANDIDATE_LINES, elo);
       return { fen, ...result };
     } catch (error) {
       throw new AnalysisUnavailableError(error instanceof Error ? error.message : "Analysis engine unavailable.");
