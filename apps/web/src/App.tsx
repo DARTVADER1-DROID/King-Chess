@@ -604,7 +604,6 @@ export default function App() {
             <p className="engine-note">Deeper searches take longer. Engine availability depends on the server Stockfish installation.</p>
           </section>}
         </aside>
-      </section>
       </section>}
       {page === "settings" && <PlayerSettings
         playerName={username} onPlayerNameChange={setUsername}
