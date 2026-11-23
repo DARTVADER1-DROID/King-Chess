@@ -19,7 +19,7 @@ class WorkspaceFunctionalTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.server = subprocess.Popen(
-            ["pnpm", "--filter", "@king-chess/web", "dev", "--", "--host", "127.0.0.1", "--port", "4173", "--strictPort"],
+            ["pnpm", "--filter", "@king-chess/web", "exec", "vite", "--host", "127.0.0.1", "--port", "4173", "--strictPort"],
             cwd=ROOT, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,
         )
         cls.playwright = sync_playwright().start()
@@ -35,6 +35,9 @@ class WorkspaceFunctionalTests(unittest.TestCase):
                 break
             except Exception as exc:
                 last_error = exc
+                if cls.server.poll() is not None:
+                    last_error = f"Vite process exited with code {cls.server.returncode}; last browser error: {exc}"
+                    break
                 time.sleep(0.5)
         else:
             cls.browser.close()
