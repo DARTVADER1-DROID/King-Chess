@@ -73,7 +73,7 @@ export default function App() {
   const [flipped, setFlipped] = useState(false);
   const [depth, setDepth] = useState(15);
   const [analysis, setAnalysis] = useState<AnalysisResponse | null>(null);
-  const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "local" ? "local" : "ai");
+  const [mode, setMode] = useState<"ai" | "online" | "local">(() => PAGE_FROM_HASH() === "online" ? "online" : PAGE_FROM_HASH() === "ai" ? "ai" : "local");
   const [analysisEnabled, setAnalysisEnabled] = useState(true);
   const [evaluationBarEnabled, setEvaluationBarEnabled] = useState(true);
   const [aiDepth, setAiDepth] = useState(10);
@@ -169,7 +169,7 @@ export default function App() {
     : status;
 
   useEffect(() => {
-    if (mode !== "ai" || room || localResult || game.turn() !== aiColor || game.isGameOver()) {
+    if (page !== "ai" || mode !== "ai" || room || localResult || game.turn() !== aiColor || game.isGameOver()) {
       setAiThinking(false);
       return;
     }
@@ -207,7 +207,7 @@ export default function App() {
       })
       .finally(() => { if (active) setAiThinking(false); });
     return () => { active = false; controller.abort(); };
-  }, [mode, room, fen, aiDepth, aiRetry, aiColor, localResult]);
+  }, [page, mode, room, fen, aiDepth, aiRetry, aiColor, localResult]);
 
   function changeMode(nextMode: "ai" | "online" | "local") {
     if (nextMode === mode) { navigate(nextMode); return; }
