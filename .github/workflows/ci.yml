@@ -23,3 +23,13 @@ jobs:
         run: pnpm build
       - name: Test
         run: pnpm test
+      - name: Set up Python test runner
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python browser-test dependencies
+        run: pip install -r requirements-test.txt
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Run Python unit and browser functional tests
+        run: python -m unittest discover -s tests -p 'test_*.py' -v
